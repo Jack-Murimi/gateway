@@ -38,7 +38,12 @@ class StatCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(label, style: Theme.of(context).textTheme.labelLarge)),
+              Expanded(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
               if (icon != null) Icon(icon, color: colors.primary),
             ],
           ),

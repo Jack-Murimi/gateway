@@ -208,10 +208,12 @@ final class AppRadii extends ThemeExtension<AppRadii> {
 /// Design token accessors for a build context.
 extension AppThemeTokens on BuildContext {
   /// App spacing tokens.
-  AppSpacing get spacing => Theme.of(this).extension<AppSpacing>() ?? AppSpacing.standard;
+  AppSpacing get spacing =>
+      Theme.of(this).extension<AppSpacing>() ?? AppSpacing.standard;
 
   /// App radius tokens.
-  AppRadii get radii => Theme.of(this).extension<AppRadii>() ?? AppRadii.standard;
+  AppRadii get radii =>
+      Theme.of(this).extension<AppRadii>() ?? AppRadii.standard;
 }
 
 double _lerpDouble(double a, double b, double t) => a + (b - a) * t;

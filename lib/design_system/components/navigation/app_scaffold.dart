@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../tokens/spacing.dart';
+import '../../tokens/breakpoints.dart';
 import '../../theme/theme_extensions.dart';
 
 /// Destination used by [AppScaffold] adaptive navigation.
@@ -22,7 +22,7 @@ class AppNavDestination {
   final IconData? selectedIcon;
 }
 
-/// Adaptive app scaffold using bottom navigation on phones and rail on tablets.
+/// Adaptive app scaffold using bottom navigation on phones, rail on tablets, and sidebar on large screens.
 class AppScaffold extends StatelessWidget {
   /// Creates an app scaffold.
   const AppScaffold({
@@ -55,10 +55,11 @@ class AppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final compact = size.width < AppSpacingTokens.compactMax;
+    final sizeClass = context.windowSizeClass;
+    final spacing = context.spacing;
 
-    if (compact) {
+    // Compact: Bottom navigation
+    if (sizeClass == WindowSizeClass.compact) {
       return Scaffold(
         appBar: AppBar(title: Text(title), actions: actions),
         body: SafeArea(child: body),
@@ -77,8 +78,34 @@ class AppScaffold extends StatelessWidget {
       );
     }
 
-    final spacing = context.spacing;
+    // Large: Full sidebar navigation
+    if (sizeClass == WindowSizeClass.large) {
+      return Scaffold(
+        body: SafeArea(
+          child: Row(
+            children: [
+              _NavigationSidebar(
+                title: title,
+                destinations: destinations,
+                selectedIndex: selectedIndex,
+                onDestinationSelected: onDestinationSelected,
+              ),
+              VerticalDivider(width: spacing.xs),
+              Expanded(
+                child: Column(
+                  children: [
+                    AppBar(title: Text(title), actions: actions),
+                    Expanded(child: body),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
+    // Medium/Expanded: Navigation rail
     return Scaffold(
       appBar: AppBar(title: Text(title), actions: actions),
       body: SafeArea(
@@ -100,6 +127,126 @@ class AppScaffold extends StatelessWidget {
             VerticalDivider(width: spacing.xs),
             Expanded(child: body),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Full sidebar navigation for large screens.
+class _NavigationSidebar extends StatelessWidget {
+  const _NavigationSidebar({
+    required this.title,
+    required this.destinations,
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+  });
+
+  final String title;
+  final List<AppNavDestination> destinations;
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      child: SizedBox(
+        width: 200,
+        child: Column(
+          children: [
+            Padding(
+              padding: spacing.page,
+              child: Row(
+                children: [
+                  Icon(Icons.local_fire_department, color: colorScheme.primary),
+                  SizedBox(width: spacing.sm),
+                  Text(
+                    'Gateway',
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            Expanded(
+              child: ListView.builder(
+                itemCount: destinations.length,
+                itemBuilder: (context, index) {
+                  final item = destinations[index];
+                  final selected = index == selectedIndex;
+
+                  return _SidebarDestination(
+                    label: item.label,
+                    icon: selected
+                        ? (item.selectedIcon ?? item.icon)
+                        : item.icon,
+                    selected: selected,
+                    onTap: () => onDestinationSelected(index),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Single sidebar destination item.
+class _SidebarDestination extends StatelessWidget {
+  const _SidebarDestination({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: selected ? colorScheme.primaryContainer : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: spacing.lg,
+            vertical: spacing.md,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: selected
+                    ? colorScheme.onPrimaryContainer
+                    : colorScheme.onSurfaceVariant,
+              ),
+              SizedBox(width: spacing.md),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: selected
+                      ? colorScheme.onPrimaryContainer
+                      : colorScheme.onSurface,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

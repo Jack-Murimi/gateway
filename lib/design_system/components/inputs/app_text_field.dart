@@ -7,6 +7,7 @@ class AppTextField extends StatelessWidget {
     super.key,
     required this.label,
     this.controller,
+    this.focusNode,
     this.hintText,
     this.prefixIcon,
     this.keyboardType,
@@ -22,6 +23,9 @@ class AppTextField extends StatelessWidget {
 
   /// Text editing controller.
   final TextEditingController? controller;
+
+  /// Focus node.
+  final FocusNode? focusNode;
 
   /// Optional hint text.
   final String? hintText;
@@ -54,6 +58,7 @@ class AppTextField extends StatelessWidget {
       label: semanticLabel ?? label,
       child: TextField(
         controller: controller,
+        focusNode: focusNode,
         keyboardType: keyboardType,
         textInputAction: textInputAction,
         onChanged: onChanged,
@@ -76,6 +81,7 @@ class AppSearchField extends StatelessWidget {
     super.key,
     required this.label,
     this.controller,
+    this.focusNode,
     this.onChanged,
     this.hintText,
   });
@@ -85,6 +91,9 @@ class AppSearchField extends StatelessWidget {
 
   /// Text editing controller.
   final TextEditingController? controller;
+
+  /// Focus node.
+  final FocusNode? focusNode;
 
   /// Called when query changes.
   final ValueChanged<String>? onChanged;
@@ -98,6 +107,7 @@ class AppSearchField extends StatelessWidget {
       label: label,
       hintText: hintText,
       controller: controller,
+      focusNode: focusNode,
       onChanged: onChanged,
       prefixIcon: Icons.search,
       textInputAction: TextInputAction.search,

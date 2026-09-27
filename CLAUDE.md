@@ -11,7 +11,7 @@ Your job is to build a clean, production-ready, responsive UI from scratch using
 
 - Build a beautiful, fast, and highly usable multi-branch POS + ERP interface.
 - Design for both **phone** and **tablet** (adaptive layouts).
-- Prioritize cashier speed on the POS screen and manager clarity on dashboards/reports.
+- Prioritize cashier speed on the Sales screen and manager clarity on dashboards/reports.
 - Everything must feel modern (Material 3) while remaining dense enough for real business use.
 
 ---
@@ -57,7 +57,7 @@ lib/
 ├── features/
 │   ├── auth/
 │   │   └── presentation/
-│   ├── pos/
+│   ├── sales/                    # Point of Sale (renamed from pos)
 │   │   └── presentation/
 │   ├── inventory/
 │   │   └── presentation/
@@ -82,7 +82,7 @@ lib/
    - Always adapt to screen size.
    - Use `LayoutBuilder`, `MediaQuery.sizeOf(context)`, and Material 3 window size classes.
    - Phone → bottom navigation or simple layouts.
-   - Tablet → `NavigationRail` + master-detail where it makes sense (especially POS and inventory).
+   - Tablet → `NavigationRail` + master-detail where it makes sense (especially Sales and inventory).
 
 6. **Accessibility & Quality**
    - Minimum 48dp touch targets.
@@ -123,9 +123,9 @@ Before building any feature screen, always:
 
 - Almost every screen should be aware of the current branch.
 - Provide a clear, always-accessible Branch Selector.
-- Show stock levels “at this branch” vs “other branches” when relevant.
+- Show stock levels "at this branch" vs "other branches" when relevant.
 
-### POS Screen (highest priority)
+### Sales Screen (highest priority)
 
 - Extremely fast product search + barcode scanning flow.
 - Large, clear cart.
@@ -193,7 +193,7 @@ When the project is empty, your first tasks should be:
 3. Create the core design tokens.
 4. Build the essential reusable components listed in section 3.
 5. Create a basic adaptive `AppScaffold` + router shell.
-6. Then start with the **POS screen** and **Login + Branch selection**.
+6. Then start with the **Sales screen** and **Login + Branch selection**.
 
 ---
 

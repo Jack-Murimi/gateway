@@ -23,11 +23,21 @@ abstract final class AppSpacingTokens {
   /// Minimum accessible touch target.
   static const double touchTarget = 48;
 
-  /// Compact window maximum width.
+  // Breakpoints
+
+  /// Phone maximum width (< 600dp).
   static const double compactMax = 600;
 
-  /// Medium window maximum width.
-  static const double mediumMax = 840;
+  /// Phablet/small tablet maximum width (< 900dp).
+  static const double mediumMax = 900;
+
+  /// Tablet maximum width (< 1200dp).
+  static const double expandedMax = 1200;
+
+  // Sales screen specific
+
+  /// Sales panel maximum width on large screens.
+  static const double salesPanelMaxWidth = 800;
 
   /// Standard page padding.
   static const EdgeInsets page = EdgeInsets.all(lg);
@@ -39,8 +49,14 @@ abstract final class AppSpacingTokens {
   static const EdgeInsets card = EdgeInsets.all(lg);
 
   /// Chip content padding.
-  static const EdgeInsets chip = EdgeInsets.symmetric(horizontal: md, vertical: xs);
+  static const EdgeInsets chip = EdgeInsets.symmetric(
+    horizontal: md,
+    vertical: xs,
+  );
 
   /// Button content padding.
-  static const EdgeInsets button = EdgeInsets.symmetric(horizontal: xl, vertical: md);
+  static const EdgeInsets button = EdgeInsets.symmetric(
+    horizontal: xl,
+    vertical: md,
+  );
 }

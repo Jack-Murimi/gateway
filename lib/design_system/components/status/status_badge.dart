@@ -30,25 +30,38 @@ class StatusBadge extends StatelessWidget {
     final spacing = context.spacing;
     final radii = context.radii;
     final (:background, :foreground) = switch (status) {
-      AppStatus.success => (background: colors.primaryContainer, foreground: colors.onPrimaryContainer),
-      AppStatus.warning => (background: colors.tertiaryContainer, foreground: colors.onTertiaryContainer),
-      AppStatus.danger => (background: colors.errorContainer, foreground: colors.onErrorContainer),
-      AppStatus.neutral => (background: colors.surfaceContainerHighest, foreground: colors.onSurfaceVariant),
-      AppStatus.info => (background: colors.secondaryContainer, foreground: colors.onSecondaryContainer),
+      AppStatus.success => (
+        background: colors.primaryContainer,
+        foreground: colors.onPrimaryContainer,
+      ),
+      AppStatus.warning => (
+        background: colors.tertiaryContainer,
+        foreground: colors.onTertiaryContainer,
+      ),
+      AppStatus.danger => (
+        background: colors.errorContainer,
+        foreground: colors.onErrorContainer,
+      ),
+      AppStatus.neutral => (
+        background: colors.surfaceContainerHighest,
+        foreground: colors.onSurfaceVariant,
+      ),
+      AppStatus.info => (
+        background: colors.secondaryContainer,
+        foreground: colors.onSecondaryContainer,
+      ),
     };
 
     return Semantics(
       label: semanticLabel ?? label,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: radii.chip,
-        ),
+        decoration: BoxDecoration(color: background, borderRadius: radii.chip),
         child: Padding(
           padding: spacing.chip,
           child: Text(
             label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: foreground),
+            style: Theme.of(context).textTheme.labelMedium
+                ?.copyWith(color: foreground),
           ),
         ),
       ),

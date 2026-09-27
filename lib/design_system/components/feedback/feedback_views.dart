@@ -71,10 +71,7 @@ class EmptyView extends StatelessWidget {
             Text(title, style: Theme.of(context).textTheme.titleMedium),
             SizedBox(height: spacing.xs),
             Text(message, textAlign: TextAlign.center),
-            if (action != null) ...[
-              SizedBox(height: spacing.lg),
-              action!,
-            ],
+            if (action != null) ...[SizedBox(height: spacing.lg), action!],
           ],
         ),
       ),
@@ -120,7 +117,11 @@ class ErrorView extends StatelessWidget {
             Text(message, textAlign: TextAlign.center),
             if (onRetry != null) ...[
               SizedBox(height: spacing.lg),
-              AppButton(label: 'Retry', onPressed: onRetry, variant: AppButtonVariant.secondary),
+              AppButton(
+                label: 'Retry',
+                onPressed: onRetry,
+                variant: AppButtonVariant.secondary,
+              ),
             ],
           ],
         ),
@@ -132,7 +133,10 @@ class ErrorView extends StatelessWidget {
 /// Inline offline banner.
 class OfflineBanner extends StatelessWidget {
   /// Creates an offline banner.
-  const OfflineBanner({super.key, this.message = 'Offline mode. Some data may be out of date.'});
+  const OfflineBanner({
+    super.key,
+    this.message = 'Offline mode. Some data may be out of date.',
+  });
 
   /// Banner message.
   final String message;
@@ -160,7 +164,8 @@ class OfflineBanner extends StatelessWidget {
               Expanded(
                 child: Text(
                   message,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colors.onTertiaryContainer),
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(color: colors.onTertiaryContainer),
                 ),
               ),
             ],

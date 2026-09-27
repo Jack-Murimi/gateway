@@ -37,15 +37,15 @@ class SectionHeader extends StatelessWidget {
                 Text(title, style: Theme.of(context).textTheme.titleLarge),
                 if (subtitle != null) ...[
                   SizedBox(height: spacing.xs),
-                  Text(subtitle!, style: Theme.of(context).textTheme.bodyMedium),
+                  Text(
+                    subtitle!,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                 ],
               ],
             ),
           ),
-          if (trailing != null) ...[
-            SizedBox(width: spacing.md),
-            trailing!,
-          ],
+          if (trailing != null) ...[SizedBox(width: spacing.md), trailing!],
         ],
       ),
     );

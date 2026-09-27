@@ -41,37 +41,43 @@ class AppButton extends StatelessWidget {
     final spacing = context.spacing;
     final colorScheme = Theme.of(context).colorScheme;
     final enabled = onPressed != null && !isLoading;
-    final child = _ButtonContent(label: label, icon: icon, isLoading: isLoading);
+    final child = _ButtonContent(
+      label: label,
+      icon: icon,
+      isLoading: isLoading,
+    );
 
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(Size.fromHeight(spacing.touchTarget)),
       padding: WidgetStatePropertyAll(spacing.button),
     );
 
+    final button = switch (variant) {
+      AppButtonVariant.primary => FilledButton(
+        onPressed: enabled ? onPressed : null,
+        style: style,
+        child: child,
+      ),
+      AppButtonVariant.secondary => OutlinedButton(
+        onPressed: enabled ? onPressed : null,
+        style: style,
+        child: child,
+      ),
+      AppButtonVariant.danger => FilledButton(
+        onPressed: enabled ? onPressed : null,
+        style: style.copyWith(
+          backgroundColor: WidgetStatePropertyAll(colorScheme.error),
+          foregroundColor: WidgetStatePropertyAll(colorScheme.onError),
+        ),
+        child: child,
+      ),
+    };
+
     return Semantics(
       button: true,
       label: semanticLabel ?? label,
       enabled: enabled,
-      child: switch (variant) {
-        AppButtonVariant.primary => FilledButton(
-            onPressed: enabled ? onPressed : null,
-            style: style,
-            child: child,
-          ),
-        AppButtonVariant.secondary => OutlinedButton(
-            onPressed: enabled ? onPressed : null,
-            style: style,
-            child: child,
-          ),
-        AppButtonVariant.danger => FilledButton(
-            onPressed: enabled ? onPressed : null,
-            style: style.copyWith(
-              backgroundColor: WidgetStatePropertyAll(colorScheme.error),
-              foregroundColor: WidgetStatePropertyAll(colorScheme.onError),
-            ),
-            child: child,
-          ),
-      },
+      child: button,
     );
   }
 }
@@ -97,7 +103,9 @@ class _ButtonContent extends StatelessWidget {
         children: [
           SizedBox.square(
             dimension: spacing.lg,
-            child: const CircularProgressIndicator(strokeWidth: AppProgressIndicator.strokeWidth),
+            child: const CircularProgressIndicator(
+              strokeWidth: AppProgressIndicator.strokeWidth,
+            ),
           ),
           SizedBox(width: spacing.sm),
           Text(label),
