@@ -39,8 +39,10 @@ class _SalesScreenState extends State<SalesScreen> {
   final List<SaleLineItem> _lineItems = [];
 
   final _branches = const [
-    BranchOption(id: 'main', name: 'Main Branch', color: Color(0xFF2E7D32)),
-    BranchOption(id: 'west', name: 'Westlands', color: Color(0xFF1565C0)),
+    BranchOption(id: 'jamhuri', name: 'Jamhuri', color: Color(0xFF2E7D32)),
+    BranchOption(id: 'lavington', name: 'Lavington', color: Color(0xFF1565C0)),
+    BranchOption(id: 'kileleshwa', name: 'Kileleshwa', color: Color(0xFF7B1FA2)),
+    BranchOption(id: 'nextgen', name: 'Nextgen', color: Color(0xFFE65100)),
   ];
 
   final _customers = const [
