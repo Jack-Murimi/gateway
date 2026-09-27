@@ -7,14 +7,16 @@ import '../../../../design_system/theme/theme_extensions.dart';
 
 import '../../domain/sales_models.dart';
 
-/// Header section for Sales screen with date/time, receipt, and customer.
+/// Header section for Sales screen with date, receipt, and customer.
 /// Branch is NOT shown here — it's already in the app bar via BranchSelector.
 class SalesHeader extends StatelessWidget {
   /// Creates the sales header.
   const SalesHeader({
     super.key,
     required this.date,
+    this.onDateChanged,
     required this.receiptNumber,
+    this.onReceiptNumberChanged,
     required this.selectedCustomer,
     required this.selectedLocation,
     required this.onCustomerChanged,
@@ -23,7 +25,9 @@ class SalesHeader extends StatelessWidget {
   });
 
   final DateTime date;
+  final ValueChanged<DateTime>? onDateChanged;
   final String receiptNumber;
+  final ValueChanged<String>? onReceiptNumberChanged;
   final Customer selectedCustomer;
   final Location selectedLocation;
   final ValueChanged<Customer> onCustomerChanged;
@@ -38,7 +42,9 @@ class SalesHeader extends StatelessWidget {
     if (useTwoRows) {
       return _TwoRowHeader(
         date: date,
+        onDateChanged: onDateChanged,
         receiptNumber: receiptNumber,
+        onReceiptNumberChanged: onReceiptNumberChanged,
         selectedCustomer: selectedCustomer,
         selectedLocation: selectedLocation,
         onCustomerChanged: onCustomerChanged,
@@ -49,7 +55,9 @@ class SalesHeader extends StatelessWidget {
 
     return _OneRowHeader(
       date: date,
+      onDateChanged: onDateChanged,
       receiptNumber: receiptNumber,
+      onReceiptNumberChanged: onReceiptNumberChanged,
       selectedCustomer: selectedCustomer,
       selectedLocation: selectedLocation,
       onCustomerChanged: onCustomerChanged,
@@ -62,7 +70,9 @@ class SalesHeader extends StatelessWidget {
 class _OneRowHeader extends StatelessWidget {
   const _OneRowHeader({
     required this.date,
+    this.onDateChanged,
     required this.receiptNumber,
+    this.onReceiptNumberChanged,
     required this.selectedCustomer,
     required this.selectedLocation,
     required this.onCustomerChanged,
@@ -71,7 +81,9 @@ class _OneRowHeader extends StatelessWidget {
   });
 
   final DateTime date;
+  final ValueChanged<DateTime>? onDateChanged;
   final String receiptNumber;
+  final ValueChanged<String>? onReceiptNumberChanged;
   final Customer selectedCustomer;
   final Location selectedLocation;
   final ValueChanged<Customer> onCustomerChanged;
@@ -82,37 +94,17 @@ class _OneRowHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final spacing = context.spacing;
     final dateFormatter = DateFormat.yMd();
-    final timeFormatter = DateFormat.jm();
 
     return Padding(
       padding: spacing.page,
       child: Row(
         children: [
           Expanded(
-            child: _buildField(
-              context,
-              label: 'Date',
-              child: Text(dateFormatter.format(date)),
-            ),
+            child: _buildDateField(context, dateFormatter),
           ),
           SizedBox(width: spacing.md),
           Expanded(
-            child: _buildField(
-              context,
-              label: 'Time',
-              child: Text(timeFormatter.format(date)),
-            ),
-          ),
-          SizedBox(width: spacing.md),
-          Expanded(
-            child: _buildField(
-              context,
-              label: 'Receipt #',
-              child: Text(
-                receiptNumber,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-            ),
+            child: _buildReceiptField(context),
           ),
           SizedBox(width: spacing.lg),
           Expanded(
@@ -130,20 +122,50 @@ class _OneRowHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildField(
-    BuildContext context, {
-    required String label,
-    required Widget child,
-  }) {
+  Widget _buildDateField(BuildContext context, DateFormat dateFormatter) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: Theme.of(context).textTheme.labelSmall),
+        Text('Date', style: Theme.of(context).textTheme.labelSmall),
         const SizedBox(height: 4),
-        DefaultTextStyle(
-          style: Theme.of(context).textTheme.bodyMedium!,
-          child: child,
+        InkWell(
+          onTap: onDateChanged == null
+              ? null
+              : () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: date,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                  );
+                  if (picked != null) onDateChanged!(picked);
+                },
+          child: Text(
+            dateFormatter.format(date),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReceiptField(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Receipt #', style: Theme.of(context).textTheme.labelSmall),
+        const SizedBox(height: 4),
+        TextFormField(
+          initialValue: receiptNumber,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            border: OutlineInputBorder(),
+          ),
+          onChanged: onReceiptNumberChanged,
         ),
       ],
     );
@@ -153,7 +175,9 @@ class _OneRowHeader extends StatelessWidget {
 class _TwoRowHeader extends StatelessWidget {
   const _TwoRowHeader({
     required this.date,
+    this.onDateChanged,
     required this.receiptNumber,
+    this.onReceiptNumberChanged,
     required this.selectedCustomer,
     required this.selectedLocation,
     required this.onCustomerChanged,
@@ -162,7 +186,9 @@ class _TwoRowHeader extends StatelessWidget {
   });
 
   final DateTime date;
+  final ValueChanged<DateTime>? onDateChanged;
   final String receiptNumber;
+  final ValueChanged<String>? onReceiptNumberChanged;
   final Customer selectedCustomer;
   final Location selectedLocation;
   final ValueChanged<Customer> onCustomerChanged;
@@ -173,7 +199,6 @@ class _TwoRowHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final spacing = context.spacing;
     final dateFormatter = DateFormat.yMd();
-    final timeFormatter = DateFormat.jm();
 
     return Padding(
       padding: spacing.page,
@@ -183,21 +208,36 @@ class _TwoRowHeader extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _InfoChip(
-                  icon: Icons.calendar_today,
-                  label: dateFormatter.format(date),
+                child: InkWell(
+                  onTap: onDateChanged == null
+                      ? null
+                      : () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: date,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) onDateChanged!(picked);
+                        },
+                  child: _InfoChip(
+                    icon: Icons.calendar_today,
+                    label: dateFormatter.format(date),
+                  ),
                 ),
               ),
               SizedBox(width: spacing.sm),
               Expanded(
-                child: _InfoChip(
-                  icon: Icons.access_time,
-                  label: timeFormatter.format(date),
+                child: TextFormField(
+                  initialValue: receiptNumber,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: 'Receipt #',
+                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: onReceiptNumberChanged,
                 ),
-              ),
-              SizedBox(width: spacing.sm),
-              Expanded(
-                child: _InfoChip(icon: Icons.receipt, label: receiptNumber),
               ),
             ],
           ),
@@ -216,29 +256,30 @@ class _TwoRowHeader extends StatelessWidget {
 }
 
 class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.icon, required this.label});
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+  });
 
   final IconData icon;
   final String label;
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
           const SizedBox(width: 8),
-          Expanded(
+          Flexible(
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodySmall,
@@ -271,22 +312,37 @@ class _CustomerField extends StatefulWidget {
 }
 
 class _CustomerFieldState extends State<_CustomerField> {
-  final _focusNode = FocusNode();
   final _controller = TextEditingController();
+  final _focusNode = FocusNode();
   var _showSuggestions = false;
+  var _selectedIndex = 0;
   List<Customer> _filteredCustomers = [];
-  int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _filteredCustomers = widget.customers;
+    if (!widget.selectedCustomer.isWalkIn) {
+      _controller.text = widget.selectedCustomer.name;
+    }
+  }
+
+  @override
+  void didUpdateWidget(_CustomerField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedCustomer != oldWidget.selectedCustomer) {
+      if (!widget.selectedCustomer.isWalkIn) {
+        _controller.text = widget.selectedCustomer.name;
+      } else {
+        _controller.clear();
+      }
+    }
   }
 
   @override
   void dispose() {
-    _focusNode.dispose();
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -295,30 +351,26 @@ class _CustomerFieldState extends State<_CustomerField> {
       if (query.isEmpty) {
         _filteredCustomers = widget.customers;
       } else {
-        _filteredCustomers = widget.customers
-            .where(
-              (c) =>
-                  c.name.toLowerCase().contains(query.toLowerCase()) ||
-                  c.phone.contains(query),
-            )
-            .toList();
+        _filteredCustomers = widget.customers.where((c) {
+          final nameMatch = c.name.toLowerCase().contains(query.toLowerCase());
+          final phoneMatch = c.phone.contains(query);
+          return nameMatch || phoneMatch;
+        }).toList();
       }
       _selectedIndex = 0;
     });
   }
 
   void _selectCustomer(Customer customer) {
-    widget.onCustomerChanged(customer);
     _controller.text = customer.name;
+    widget.onCustomerChanged(customer);
     setState(() {
       _showSuggestions = false;
-      _filteredCustomers = widget.customers;
+      _selectedIndex = 0;
     });
   }
 
   void _handleKey(KeyEvent event) {
-    if (!_showSuggestions) return;
-
     if (event is KeyDownEvent) {
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
         setState(() {

@@ -33,6 +33,7 @@ class _SalesScreenState extends State<SalesScreen> {
 
   var _selectedBranchId = 'main';
   var _receiptNumber = 'REC-2024-001';
+  var _selectedDate = DateTime.now();
   var _selectedCustomer = Customer.walkIn;
   var _selectedLocation = Location.defaultLocation;
   final List<SaleLineItem> _lineItems = [];
@@ -122,6 +123,7 @@ class _SalesScreenState extends State<SalesScreen> {
   void initState() {
     super.initState();
     _generateReceiptNumber();
+      _selectedDate = DateTime.now();
   }
 
   void _generateReceiptNumber() {
@@ -172,6 +174,7 @@ class _SalesScreenState extends State<SalesScreen> {
     setState(() {
       _lineItems.clear();
       _generateReceiptNumber();
+      _selectedDate = DateTime.now();
       _selectedCustomer = Customer.walkIn;
     });
   }
@@ -315,8 +318,10 @@ class _SalesScreenState extends State<SalesScreen> {
 
   Widget _buildHeader() {
     return SalesHeader(
-      date: DateTime.now(),
+      date: _selectedDate,
+      onDateChanged: (date) => setState(() => _selectedDate = date),
       receiptNumber: _receiptNumber,
+      onReceiptNumberChanged: (value) => setState(() => _receiptNumber = value),
       selectedCustomer: _selectedCustomer,
       selectedLocation: _selectedLocation,
       onCustomerChanged: (customer) => setState(() {
