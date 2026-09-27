@@ -63,69 +63,38 @@ class _SalesScreenState extends State<SalesScreen> {
   ];
 
   final _products = const [
-    Product(
-      id: '1',
-      name: '13kg Afrigas Refill',
-      price: 3300,
-      stock: 45,
-      cylinderType: '13kg',
-    ),
-    Product(
-      id: '2',
-      name: '6kg Afrigas Refill',
-      price: 1800,
-      stock: 32,
-      cylinderType: '6kg',
-    ),
-    Product(
-      id: '3',
-      name: 'Burner Regulator Kit',
-      price: 1250,
-      stock: 8,
-      cylinderType: null,
-    ),
-    Product(
-      id: '4',
-      name: 'Gas Hose 1.5m',
-      price: 450,
-      stock: 67,
-      cylinderType: null,
-    ),
-    Product(
-      id: '5',
-      name: '13kg Empty Cylinder',
-      price: 5500,
-      stock: 12,
-      cylinderType: '13kg',
-    ),
-    Product(
-      id: '6',
-      name: '6kg Empty Cylinder',
-      price: 3200,
-      stock: 0,
-      cylinderType: '6kg',
-    ),
-    Product(
-      id: '7',
-      name: 'Double Burner Stove',
-      price: 4800,
-      stock: 15,
-      cylinderType: null,
-    ),
-    Product(
-      id: '8',
-      name: 'Single Burner Stove',
-      price: 2400,
-      stock: 23,
-      cylinderType: null,
-    ),
+    // Afrigas - 6kg & 13kg
+    Product(id: 'afrigas-13kg-refill', name: '13kg Afrigas Refill', price: 3300, stock: 45, cylinderType: '13kg'),
+    Product(id: 'afrigas-6kg-refill', name: '6kg Afrigas Refill', price: 1800, stock: 32, cylinderType: '6kg'),
+    Product(id: 'afrigas-13kg-empty', name: '13kg Afrigas Empty Cylinder', price: 5500, stock: 12, cylinderType: '13kg'),
+    Product(id: 'afrigas-6kg-empty', name: '6kg Afrigas Empty Cylinder', price: 3200, stock: 8, cylinderType: '6kg'),
+    // Progas - 6kg & 13kg
+    Product(id: 'progas-13kg-refill', name: '13kg Progas Refill', price: 3200, stock: 38, cylinderType: '13kg'),
+    Product(id: 'progas-6kg-refill', name: '6kg Progas Refill', price: 1750, stock: 28, cylinderType: '6kg'),
+    Product(id: 'progas-13kg-empty', name: '13kg Progas Empty Cylinder', price: 5300, stock: 10, cylinderType: '13kg'),
+    Product(id: 'progas-6kg-empty', name: '6kg Progas Empty Cylinder', price: 3100, stock: 6, cylinderType: '6kg'),
+    // K-gas - 6kg & 13kg
+    Product(id: 'kgas-13kg-refill', name: '13kg K-gas Refill', price: 3400, stock: 52, cylinderType: '13kg'),
+    Product(id: 'kgas-6kg-refill', name: '6kg K-gas Refill', price: 1850, stock: 35, cylinderType: '6kg'),
+    Product(id: 'kgas-13kg-empty', name: '13kg K-gas Empty Cylinder', price: 5600, stock: 15, cylinderType: '13kg'),
+    Product(id: 'kgas-6kg-empty', name: '6kg K-gas Empty Cylinder', price: 3300, stock: 9, cylinderType: '6kg'),
+    // Totalgaz - 6kg & 13kg
+    Product(id: 'totalgaz-13kg-refill', name: '13kg Totalgaz Refill', price: 3350, stock: 40, cylinderType: '13kg'),
+    Product(id: 'totalgaz-6kg-refill', name: '6kg Totalgaz Refill', price: 1820, stock: 30, cylinderType: '6kg'),
+    Product(id: 'totalgaz-13kg-empty', name: '13kg Totalgaz Empty Cylinder', price: 5450, stock: 11, cylinderType: '13kg'),
+    Product(id: 'totalgaz-6kg-empty', name: '6kg Totalgaz Empty Cylinder', price: 3250, stock: 7, cylinderType: '6kg'),
+    // Accessories
+    Product(id: 'burner-kit', name: 'Burner Regulator Kit', price: 1250, stock: 8, cylinderType: null),
+    Product(id: 'hose-1.5m', name: 'Gas Hose 1.5m', price: 450, stock: 67, cylinderType: null),
+    Product(id: 'double-stove', name: 'Double Burner Stove', price: 4800, stock: 15, cylinderType: null),
+    Product(id: 'single-stove', name: 'Single Burner Stove', price: 2400, stock: 23, cylinderType: null),
   ];
 
   @override
   void initState() {
     super.initState();
     _generateReceiptNumber();
-      _selectedDate = DateTime.now();
+    _selectedDate = DateTime.now();
   }
 
   void _generateReceiptNumber() {

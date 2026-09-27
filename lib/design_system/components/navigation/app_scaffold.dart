@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../tokens/breakpoints.dart';
 import '../../theme/theme_extensions.dart';
@@ -61,7 +62,17 @@ class AppScaffold extends StatelessWidget {
     // Compact: Bottom navigation
     if (sizeClass == WindowSizeClass.compact) {
       return Scaffold(
-        appBar: AppBar(title: Text(title), actions: actions),
+        appBar: AppBar(
+          title: Text(title),
+          actions: actions,
+          leading: Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
+          ),
+        ),
+        drawer: _AppDrawer(),
         body: SafeArea(child: body),
         bottomNavigationBar: NavigationBar(
           selectedIndex: selectedIndex,
@@ -128,6 +139,78 @@ class AppScaffold extends StatelessWidget {
             Expanded(child: body),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// App drawer with additional pages.
+class _AppDrawer extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Drawer(
+      child: Column(
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(color: colorScheme.primaryContainer),
+            child: Row(
+              children: [
+                Icon(Icons.local_fire_department, color: colorScheme.primary, size: 32),
+                SizedBox(width: spacing.sm),
+                Text(
+                  'Gateway',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.people_outline),
+            title: const Text('People'),
+            onTap: () {
+              Navigator.pop(context);
+              context.go('/people');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.suppliers),
+            title: const Text('Suppliers'),
+            onTap: () {
+              Navigator.pop(context);
+              context.go('/suppliers');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.history),
+            title: const Text('Sales History'),
+            onTap: () {
+              Navigator.pop(context);
+              context.go('/sales-history');
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.store_outlined),
+            title: const Text('Branch Management'),
+            onTap: () {
+              Navigator.pop(context);
+              context.go('/branches');
+            },
+          ),
+          const Spacer(),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('About'),
+            onTap: () => Navigator.pop(context),
+          ),
+        ],
       ),
     );
   }

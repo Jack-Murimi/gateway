@@ -145,6 +145,20 @@ class _SettingsContent extends StatelessWidget {
           ),
           SizedBox(height: spacing.lg),
           _SettingsSection(
+            title: 'Management',
+            children: [
+              _SettingsTile(
+                icon: Icons.store_outlined,
+                title: 'Branch Management',
+                subtitle: 'Add, edit, or remove branches',
+                onTap: () {
+                  context.go('/branches');
+                },
+              ),
+            ],
+          ),
+          SizedBox(height: spacing.lg),
+          _SettingsSection(
             title: 'Account',
             children: [
               _SettingsTile(

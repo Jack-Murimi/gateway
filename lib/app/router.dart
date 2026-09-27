@@ -9,6 +9,7 @@ import '../features/people/presentation/people_screen.dart';
 import '../features/reports/presentation/reports_screen.dart';
 import '../features/sales_history/presentation/sales_history_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
+import '../features/branches/presentation/branch_management_screen.dart';
 
 /// App router configuration.
 final GoRouter appRouter = GoRouter(
@@ -49,6 +50,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: SettingsScreen.routePath,
       builder: (context, state) => const SettingsScreen(),
+    ),
+    GoRoute(
+      path: BranchManagementScreen.routePath,
+      builder: (context, state) => const BranchManagementScreen(),
     ),
   ],
 );
