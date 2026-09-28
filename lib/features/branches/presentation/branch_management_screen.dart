@@ -77,7 +77,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Branch'),
-        content: Text('Are you sure you want to delete \"\"?'),
+        content: Text('Are you sure you want to delete ""??'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -146,7 +146,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _branches.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
+                separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final branch = _branches[index];
                   return _BranchTile(
