@@ -32,7 +32,7 @@ class _SalesScreenState extends State<SalesScreen> {
   final _currency = NumberFormat.simpleCurrency(name: 'KES');
 
   var _selectedBranchId = 'main';
-  var _receiptNumber = 'REC-2024-001';
+  var _receiptNumber = '';
   var _selectedDate = DateTime.now();
   var _selectedCustomer = Customer.walkIn;
   var _selectedLocation = Location.defaultLocation;
@@ -422,12 +422,15 @@ class _SinglePaneLayout extends StatelessWidget {
 
     return Stack(
       children: [
-        Column(
-          children: [
-            header,
-            const Divider(height: 1),
-            searchBar,
-          ],
+        SingleChildScrollView(
+          padding: EdgeInsets.only(bottom: lineItems.isNotEmpty ? 80 : 0),
+          child: Column(
+            children: [
+              header,
+              const Divider(height: 1),
+              searchBar,
+            ],
+          ),
         ),
         // Floating cart bar at bottom
         if (lineItems.isNotEmpty)
@@ -703,3 +706,4 @@ class _ProductSearchBarState extends State<_ProductSearchBar> {
     );
   }
 }
+

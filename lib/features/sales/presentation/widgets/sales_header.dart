@@ -208,7 +208,16 @@ class _TwoRowHeader extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: InkWell(
+                child: TextFormField(
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: "Date",
+                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.calendar_today, size: 16),
+                  ),
+                  controller: TextEditingController(text: dateFormatter.format(date)),
                   onTap: onDateChanged == null
                       ? null
                       : () async {
@@ -220,10 +229,6 @@ class _TwoRowHeader extends StatelessWidget {
                           );
                           if (picked != null) onDateChanged!(picked);
                         },
-                  child: _InfoChip(
-                    icon: Icons.calendar_today,
-                    label: dateFormatter.format(date),
-                  ),
                 ),
               ),
               SizedBox(width: spacing.sm),
@@ -248,43 +253,6 @@ class _TwoRowHeader extends StatelessWidget {
             onCustomerChanged: onCustomerChanged,
             onLocationChanged: onLocationChanged,
             customers: customers,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.icon,
-    required this.label,
-  });
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall,
-              overflow: TextOverflow.ellipsis,
-            ),
           ),
         ],
       ),
@@ -515,3 +483,5 @@ class _CustomerFieldState extends State<_CustomerField> {
     );
   }
 }
+
+
