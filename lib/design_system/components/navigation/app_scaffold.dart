@@ -77,7 +77,9 @@ class AppScaffold extends StatelessWidget {
         bottomNavigationBar: NavigationBar(
           selectedIndex: selectedIndex,
           onDestinationSelected: onDestinationSelected,
+          indicatorColor: Theme.of(context).colorScheme.primaryContainer,
           destinations: [
+          
             for (final item in destinations)
               NavigationDestination(
                 icon: Icon(item.icon),
@@ -335,3 +337,6 @@ class _SidebarDestination extends StatelessWidget {
     );
   }
 }
+
+
+

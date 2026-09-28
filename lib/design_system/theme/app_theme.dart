@@ -33,8 +33,13 @@ abstract final class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colorScheme.surfaceContainerHighest,
+        isDense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: OutlineInputBorder(),
+        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
       ),
       visualDensity: VisualDensity.standard,
     );
   }
 }
+

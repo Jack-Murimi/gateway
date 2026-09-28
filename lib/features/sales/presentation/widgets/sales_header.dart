@@ -162,7 +162,7 @@ class _OneRowHeader extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w500),
           decoration: const InputDecoration(
             isDense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            
             border: OutlineInputBorder(),
           ),
           onChanged: onReceiptNumberChanged,
@@ -213,7 +213,7 @@ class _TwoRowHeader extends StatelessWidget {
                   decoration: const InputDecoration(
                     isDense: true,
                     hintText: "Date",
-                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.calendar_today, size: 16),
                   ),
@@ -237,8 +237,8 @@ class _TwoRowHeader extends StatelessWidget {
                   initialValue: receiptNumber,
                   decoration: const InputDecoration(
                     isDense: true,
-                    hintText: 'Receipt #',
-                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    hintText: 'Receipt / Invoice #',
+                    
                     border: OutlineInputBorder(),
                   ),
                   onChanged: onReceiptNumberChanged,
@@ -483,5 +483,6 @@ class _CustomerFieldState extends State<_CustomerField> {
     );
   }
 }
+
 
 
