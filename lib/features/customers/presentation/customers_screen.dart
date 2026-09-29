@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../design_system/components/buttons/app_button.dart';
@@ -10,7 +12,7 @@ import '../../../design_system/components/people/party_tiles.dart';
 import '../../../design_system/components/status/status_badge.dart';
 import '../../../design_system/theme/theme_extensions.dart';
 
-/// Customers screen with search and details.
+/// Customers screen with CRUD operations.
 class CustomersScreen extends StatefulWidget {
   /// Creates the customers screen.
   const CustomersScreen({super.key});
@@ -25,7 +27,7 @@ class CustomersScreen extends StatefulWidget {
 class _CustomersScreenState extends State<CustomersScreen> {
   final _searchController = TextEditingController();
 
-  static const _customers = [
+  final List<_Customer> _customers = [
     _Customer(
       id: '1',
       name: 'John Kamau',
@@ -69,12 +71,73 @@ class _CustomersScreenState extends State<CustomersScreen> {
     super.dispose();
   }
 
+  void _addCustomer() {
+    showDialog(
+      context: context,
+      builder: (context) => _CustomerFormDialog(
+        onSave: (customer) {
+          setState(() {
+            _customers.add(customer);
+          });
+        },
+      ),
+    );
+  }
+
+  void _editCustomer(_Customer customer) {
+    showDialog(
+      context: context,
+      builder: (context) => _CustomerFormDialog(
+        customer: customer,
+        onSave: (updated) {
+          setState(() {
+            final index = _customers.indexWhere((c) => c.id == customer.id);
+            if (index != -1) _customers[index] = updated;
+          });
+        },
+      ),
+    );
+  }
+
+  void _deleteCustomer(_Customer customer) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Customer'),
+        content: Text('Delete \"\"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          AppButton(
+            label: 'Delete',
+            variant: AppButtonVariant.danger,
+            onPressed: () {
+              setState(() {
+                _customers.removeWhere((c) => c.id == customer.id);
+              });
+              Navigator.of(context).pop();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currency = NumberFormat.simpleCurrency(name: 'KES');
 
     return AppScaffold(
       title: 'Customers',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.add),
+          onPressed: _addCustomer,
+          tooltip: 'Add customer',
+        ),
+      ],
       selectedIndex: 1,
       onDestinationSelected: (index) => _handleNavigation(context, index),
       destinations: const [
@@ -103,6 +166,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
         searchController: _searchController,
         customers: _customers,
         currency: currency,
+        onEdit: _editCustomer,
+        onDelete: _deleteCustomer,
       ),
     );
   }
@@ -110,13 +175,13 @@ class _CustomersScreenState extends State<CustomersScreen> {
   void _handleNavigation(BuildContext context, int index) {
     switch (index) {
       case 0:
-        Navigator.of(context).pushReplacementNamed('/sales');
+        context.go('/sales');
         break;
       case 2:
-        Navigator.of(context).pushReplacementNamed('/reports');
+        context.go('/reports');
         break;
       case 3:
-        Navigator.of(context).pushReplacementNamed('/settings');
+        context.go('/settings');
         break;
     }
   }
@@ -127,11 +192,15 @@ class _CustomersContent extends StatelessWidget {
     required this.searchController,
     required this.customers,
     required this.currency,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   final TextEditingController searchController;
   final List<_Customer> customers;
   final NumberFormat currency;
+  final void Function(_Customer) onEdit;
+  final void Function(_Customer) onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -185,8 +254,18 @@ class _CustomersContent extends StatelessWidget {
   ) {
     showDialog(
       context: context,
-      builder: (context) =>
-          _CustomerDetailDialog(customer: customer, currency: currency),
+      builder: (context) => _CustomerDetailDialog(
+        customer: customer,
+        currency: currency,
+        onEdit: () {
+          Navigator.of(context).pop();
+          onEdit(customer);
+        },
+        onDelete: () {
+          Navigator.of(context).pop();
+          onDelete(customer);
+        },
+      ),
     );
   }
 }
@@ -210,10 +289,17 @@ class _BalanceChip extends StatelessWidget {
 }
 
 class _CustomerDetailDialog extends StatelessWidget {
-  const _CustomerDetailDialog({required this.customer, required this.currency});
+  const _CustomerDetailDialog({
+    required this.customer,
+    required this.currency,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   final _Customer customer;
   final NumberFormat currency;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -225,25 +311,109 @@ class _CustomerDetailDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Phone: ${customer.phone}'),
+          Text('Phone: '),
           SizedBox(height: spacing.sm),
-          Text('Balance: ${currency.format(customer.balance)}'),
+          Text('Balance: '),
           SizedBox(height: spacing.sm),
-          Text('Last Purchase: ${customer.lastPurchase}'),
+          Text('Last Purchase: '),
         ],
       ),
       actions: [
+        TextButton(
+          onPressed: onDelete,
+          child: const Text('Delete'),
+        ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Close'),
         ),
         Expanded(
           child: AppButton(
-            label: 'New Sale',
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
+            label: 'Edit',
+            onPressed: onEdit,
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CustomerFormDialog extends StatefulWidget {
+  const _CustomerFormDialog({
+    this.customer,
+    required this.onSave,
+  });
+
+  final _Customer? customer;
+  final void Function(_Customer) onSave;
+
+  @override
+  State<_CustomerFormDialog> createState() => _CustomerFormDialogState();
+}
+
+class _CustomerFormDialogState extends State<_CustomerFormDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final _nameController = TextEditingController(text: widget.customer?.name);
+  late final _phoneController = TextEditingController(text: widget.customer?.phone);
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (_formKey.currentState!.validate()) {
+      final customer = _Customer(
+        id: widget.customer?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        name: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        balance: widget.customer?.balance ?? 0,
+        lastPurchase: widget.customer?.lastPurchase ?? '-',
+      );
+      widget.onSave(customer);
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<SpacingTheme>()!;
+    final isEditing = widget.customer != null;
+
+    return AlertDialog(
+      title: Text(isEditing ? 'Edit Customer' : 'Add Customer'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppTextField(
+              label: 'Name',
+              controller: _nameController,
+              prefixIcon: Icons.person,
+              hintText: 'Customer name',
+            ),
+            SizedBox(height: spacing.md),
+            AppTextField(
+              label: 'Phone',
+              controller: _phoneController,
+              prefixIcon: Icons.phone,
+              hintText: '+2547XX XXX XXX',
+              keyboardType: TextInputType.phone,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        AppButton(
+          label: isEditing ? 'Save' : 'Add',
+          onPressed: _save,
         ),
       ],
     );

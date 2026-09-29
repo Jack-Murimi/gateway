@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../design_system/components/buttons/app_button.dart';
@@ -103,13 +104,13 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
   void _handleNavigation(BuildContext context, int index) {
     switch (index) {
       case 0:
-        Navigator.of(context).pushReplacementNamed('/sales');
+        context.go('/sales');
         break;
       case 2:
-        Navigator.of(context).pushReplacementNamed('/reports');
+        context.go('/reports');
         break;
       case 3:
-        Navigator.of(context).pushReplacementNamed('/settings');
+        context.go('/settings');
         break;
     }
   }

@@ -38,6 +38,41 @@ abstract final class AppTheme {
         border: OutlineInputBorder(),
         hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        indicatorColor: colorScheme.primary.withAlpha(30),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return IconThemeData(color: colorScheme.primary, size: 24);
+          }
+          return IconThemeData(color: colorScheme.onSurfaceVariant, size: 24);
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return TextStyle(
+              fontSize: 12,
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            );
+          }
+          return TextStyle(
+            fontSize: 12,
+            color: colorScheme.onSurfaceVariant,
+          );
+        }),
+      ),
+      navigationRailTheme: NavigationRailThemeData(
+        indicatorColor: colorScheme.primary.withAlpha(30),
+        selectedIconTheme: IconThemeData(color: colorScheme.primary, size: 24),
+        unselectedIconTheme: IconThemeData(
+          color: colorScheme.onSurfaceVariant,
+          size: 24,
+        ),
+        selectedLabelTextStyle: TextStyle(
+          color: colorScheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelTextStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+      ),
       visualDensity: VisualDensity.standard,
     );
   }
