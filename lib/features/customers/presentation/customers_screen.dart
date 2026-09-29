@@ -1,5 +1,4 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
@@ -31,35 +30,64 @@ class _CustomersScreenState extends State<CustomersScreen> {
     _Customer(
       id: '1',
       name: 'John Kamau',
-      phone: '+254712345678',
+      phones: [
+        _PhoneEntry(number: '+254712345678', label: 'John', isDefault: true),
+        _PhoneEntry(number: '+254722111222', label: 'Mary (wife)'),
+      ],
+      locations: [
+        _LocationEntry(address: '123 Main St, Westlands', label: 'Home', isDefault: true),
+      ],
       balance: -2400,
       lastPurchase: '2024-01-15',
     ),
     _Customer(
       id: '2',
       name: 'Mary Wanjiku',
-      phone: '+254723456789',
+      phones: [
+        _PhoneEntry(number: '+254723456789', label: 'Mary', isDefault: true),
+      ],
+      locations: [
+        _LocationEntry(address: '456 Oak Ave, Kilimani', label: 'Home', isDefault: true),
+        _LocationEntry(address: '789 Work Rd, CBD', label: 'Office'),
+      ],
       balance: 0,
       lastPurchase: '2024-01-14',
     ),
     _Customer(
       id: '3',
       name: 'Peter Ochieng',
-      phone: '+254734567890',
+      phones: [
+        _PhoneEntry(number: '+254734567890', label: 'Peter', isDefault: true),
+        _PhoneEntry(number: '+254744555666', label: 'House'),
+      ],
+      locations: [
+        _LocationEntry(address: '321 Lake View, Kisumu', label: 'Home', isDefault: true),
+      ],
       balance: -5600,
       lastPurchase: '2024-01-13',
     ),
     _Customer(
       id: '4',
       name: 'Grace Muthoni',
-      phone: '+254745678901',
+      phones: [
+        _PhoneEntry(number: '+254745678901', label: 'Grace', isDefault: true),
+      ],
+      locations: [
+        _LocationEntry(address: '555 Green Lane, Nakuru', label: 'Home', isDefault: true),
+      ],
       balance: 1200,
       lastPurchase: '2024-01-12',
     ),
     _Customer(
       id: '5',
       name: 'James Kibet',
-      phone: '+254756789012',
+      phones: [
+        _PhoneEntry(number: '+254756789012', label: 'James', isDefault: true),
+        _PhoneEntry(number: '+254766888999', label: 'Mai (househelp)', description: 'Call after 6pm'),
+      ],
+      locations: [
+        _LocationEntry(address: '999 Hill Rd, Eldoret', label: 'Home', isDefault: true),
+      ],
       balance: 0,
       lastPurchase: '2024-01-10',
     ),
@@ -104,7 +132,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Customer'),
-        content: Text('Delete \"\"? This cannot be undone.'),
+        content: Text('Delete "${customer.name}"? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -232,7 +260,7 @@ class _CustomersContent extends StatelessWidget {
               children: customers.map((customer) {
                 return CustomerTile(
                   name: customer.name,
-                  subtitle: customer.phone,
+                  subtitle: customer.defaultPhone.number,
                   trailing: _BalanceChip(
                     balance: customer.balance,
                     currency: currency,
@@ -281,8 +309,8 @@ class _BalanceChip extends StatelessWidget {
     final status = balance < 0
         ? AppStatus.danger
         : balance > 0
-        ? AppStatus.success
-        : AppStatus.neutral;
+            ? AppStatus.success
+            : AppStatus.neutral;
 
     return StatusBadge(label: currency.format(balance.abs()), status: status);
   }
@@ -304,19 +332,71 @@ class _CustomerDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
+    final theme = Theme.of(context);
 
     return AlertDialog(
       title: Text(customer.name),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Phone: '),
-          SizedBox(height: spacing.sm),
-          Text('Balance: '),
-          SizedBox(height: spacing.sm),
-          Text('Last Purchase: '),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Phones:', style: theme.textTheme.labelLarge),
+            ...customer.phones.map((p) => Padding(
+              padding: EdgeInsets.only(left: spacing.sm, top: spacing.xs),
+              child: Row(
+                children: [
+                  if (p.isDefault)
+                    Padding(
+                      padding: EdgeInsets.only(right: spacing.xs),
+                      child: Icon(Icons.star, size: 14, color: theme.colorScheme.primary),
+                    ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${p.label}: ${p.number}'),
+                        if (p.description != null)
+                          Text(
+                            p.description!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )),
+            SizedBox(height: spacing.md),
+            Text('Locations:', style: theme.textTheme.labelLarge),
+            ...customer.locations.map((l) => Padding(
+              padding: EdgeInsets.only(left: spacing.sm, top: spacing.xs),
+              child: Row(
+                children: [
+                  if (l.isDefault)
+                    Padding(
+                      padding: EdgeInsets.only(right: spacing.xs),
+                      child: Icon(Icons.star, size: 14, color: theme.colorScheme.primary),
+                    ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${l.label}: ${l.address}'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )),
+            SizedBox(height: spacing.md),
+            Text('Balance: ${currency.format(customer.balance)}'),
+            SizedBox(height: spacing.sm),
+            Text('Last Purchase: ${customer.lastPurchase}'),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -327,11 +407,9 @@ class _CustomerDetailDialog extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Close'),
         ),
-        Expanded(
-          child: AppButton(
-            label: 'Edit',
-            onPressed: onEdit,
-          ),
+        AppButton(
+          label: 'Edit',
+          onPressed: onEdit,
         ),
       ],
     );
@@ -354,56 +432,69 @@ class _CustomerFormDialog extends StatefulWidget {
 class _CustomerFormDialogState extends State<_CustomerFormDialog> {
   final _formKey = GlobalKey<FormState>();
   late final _nameController = TextEditingController(text: widget.customer?.name);
-  late final _phoneController = TextEditingController(text: widget.customer?.phone);
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    if (_formKey.currentState!.validate()) {
-      final customer = _Customer(
-        id: widget.customer?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        name: _nameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        balance: widget.customer?.balance ?? 0,
-        lastPurchase: widget.customer?.lastPurchase ?? '-',
-      );
-      widget.onSave(customer);
-      Navigator.of(context).pop();
-    }
-  }
+  late List<_PhoneEntry> _phones = widget.customer?.phones.toList() ?? [_PhoneEntry(number: '', label: 'Primary', isDefault: true)];
+  late List<_LocationEntry> _locations = widget.customer?.locations.toList() ?? [_LocationEntry(address: '', label: 'Home', isDefault: true)];
 
   @override
   Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<SpacingTheme>()!;
+    final spacing = context.spacing;
     final isEditing = widget.customer != null;
 
     return AlertDialog(
       title: Text(isEditing ? 'Edit Customer' : 'Add Customer'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppTextField(
-              label: 'Name',
-              controller: _nameController,
-              prefixIcon: Icons.person,
-              hintText: 'Customer name',
-            ),
-            SizedBox(height: spacing.md),
-            AppTextField(
-              label: 'Phone',
-              controller: _phoneController,
-              prefixIcon: Icons.phone,
-              hintText: '+2547XX XXX XXX',
-              keyboardType: TextInputType.phone,
-            ),
-          ],
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppTextField(
+                label: 'Customer Name',
+                controller: _nameController,
+                prefixIcon: Icons.person,
+                hintText: 'e.g., Kamau Family',
+              ),
+              SizedBox(height: spacing.lg),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Phones', style: Theme.of(context).textTheme.labelLarge),
+                  TextButton.icon(
+                    onPressed: _addPhone,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add'),
+                  ),
+                ],
+              ),
+              ..._phones.asMap().entries.map((entry) => _PhoneInput(
+                entry: entry.value,
+                index: entry.key,
+                onChanged: (phone) => _phones[entry.key] = phone,
+                onRemove: _phones.length > 1 ? () => _removePhone(entry.key) : null,
+                onSetDefault: () => _setDefaultPhone(entry.key),
+              )),
+              SizedBox(height: spacing.md),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Locations', style: Theme.of(context).textTheme.labelLarge),
+                  TextButton.icon(
+                    onPressed: _addLocation,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add'),
+                  ),
+                ],
+              ),
+              ..._locations.asMap().entries.map((entry) => _LocationInput(
+                entry: entry.value,
+                index: entry.key,
+                onChanged: (location) => _locations[entry.key] = location,
+                onRemove: _locations.length > 1 ? () => _removeLocation(entry.key) : null,
+                onSetDefault: () => _setDefaultLocation(entry.key),
+              )),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -418,20 +509,270 @@ class _CustomerFormDialogState extends State<_CustomerFormDialog> {
       ],
     );
   }
+
+  void _addPhone() => setState(() => _phones.add(_PhoneEntry(number: '', label: '')));
+  void _removePhone(int index) => setState(() => _phones.removeAt(index));
+  void _setDefaultPhone(int index) {
+    setState(() {
+      _phones = _phones.asMap().entries.map((e) => e.value.copyWith(isDefault: e.key == index)).toList();
+    });
+  }
+
+  void _addLocation() => setState(() => _locations.add(_LocationEntry(address: '', label: '')));
+  void _removeLocation(int index) => setState(() => _locations.removeAt(index));
+  void _setDefaultLocation(int index) {
+    setState(() {
+      _locations = _locations.asMap().entries.map((e) => e.value.copyWith(isDefault: e.key == index)).toList();
+    });
+  }
+
+  void _save() {
+    if (_formKey.currentState!.validate()) {
+      final customer = _Customer(
+        id: widget.customer?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        name: _nameController.text.trim(),
+        phones: _phones.where((p) => p.number.isNotEmpty).toList(),
+        locations: _locations.where((l) => l.address.isNotEmpty).toList(),
+        balance: widget.customer?.balance ?? 0,
+        lastPurchase: widget.customer?.lastPurchase ?? '-',
+      );
+      widget.onSave(customer);
+      Navigator.of(context).pop();
+    }
+  }
+}
+
+class _PhoneInput extends StatelessWidget {
+  const _PhoneInput({
+    required this.entry,
+    required this.index,
+    required this.onChanged,
+    required this.onRemove,
+    required this.onSetDefault,
+  });
+
+  final _PhoneEntry entry;
+  final int index;
+  final void Function(_PhoneEntry) onChanged;
+  final VoidCallback? onRemove;
+  final VoidCallback onSetDefault;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: spacing.sm),
+      child: Row(
+        children: [
+          if (entry.isDefault)
+            Padding(
+              padding: EdgeInsets.only(right: spacing.xs),
+              child: Icon(Icons.star, size: 14, color: Theme.of(context).colorScheme.primary),
+            )
+          else
+            IconButton(
+              onPressed: onSetDefault,
+              icon: const Icon(Icons.star_border, size: 14),
+              tooltip: 'Set as default',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+            ),
+          Expanded(
+            child: Column(
+              children: [
+                TextFormField(
+                  initialValue: entry.label,
+                  decoration: const InputDecoration(
+                    labelText: 'Label',
+                    hintText: 'e.g., John, Mary (wife), House',
+                    isDense: true,
+                  ),
+                  onChanged: (v) => onChanged(entry.copyWith(label: v)),
+                ),
+                SizedBox(height: spacing.xs),
+                TextFormField(
+                  initialValue: entry.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone',
+                    hintText: '+2547XX XXX XXX',
+                    isDense: true,
+                  ),
+                  keyboardType: TextInputType.phone,
+                  onChanged: (v) => onChanged(entry.copyWith(number: v)),
+                ),
+                if (entry.description != null || index > 0)
+                  TextFormField(
+                    initialValue: entry.description ?? '',
+                    decoration: const InputDecoration(
+                      labelText: 'Notes (optional)',
+                      hintText: 'e.g., Call after 6pm',
+                      isDense: true,
+                    ),
+                    onChanged: (v) => onChanged(entry.copyWith(description: v.isEmpty ? null : v)),
+                  ),
+              ],
+            ),
+          ),
+          if (onRemove != null)
+            IconButton(
+              onPressed: onRemove,
+              icon: const Icon(Icons.close, size: 18),
+              tooltip: 'Remove',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationInput extends StatelessWidget {
+  const _LocationInput({
+    required this.entry,
+    required this.index,
+    required this.onChanged,
+    required this.onRemove,
+    required this.onSetDefault,
+  });
+
+  final _LocationEntry entry;
+  final int index;
+  final void Function(_LocationEntry) onChanged;
+  final VoidCallback? onRemove;
+  final VoidCallback onSetDefault;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: spacing.sm),
+      child: Row(
+        children: [
+          if (entry.isDefault)
+            Padding(
+              padding: EdgeInsets.only(right: spacing.xs),
+              child: Icon(Icons.star, size: 14, color: Theme.of(context).colorScheme.primary),
+            )
+          else
+            IconButton(
+              onPressed: onSetDefault,
+              icon: const Icon(Icons.star_border, size: 14),
+              tooltip: 'Set as default',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+            ),
+          Expanded(
+            child: Column(
+              children: [
+                TextFormField(
+                  initialValue: entry.label,
+                  decoration: const InputDecoration(
+                    labelText: 'Label',
+                    hintText: 'e.g., Home, Office',
+                    isDense: true,
+                  ),
+                  onChanged: (v) => onChanged(entry.copyWith(label: v)),
+                ),
+                SizedBox(height: spacing.xs),
+                TextFormField(
+                  initialValue: entry.address,
+                  decoration: const InputDecoration(
+                    labelText: 'Address',
+                    hintText: 'Street, area, city',
+                    isDense: true,
+                  ),
+                  maxLines: 2,
+                  onChanged: (v) => onChanged(entry.copyWith(address: v)),
+                ),
+              ],
+            ),
+          ),
+          if (onRemove != null)
+            IconButton(
+              onPressed: onRemove,
+              icon: const Icon(Icons.close, size: 18),
+              tooltip: 'Remove',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PhoneEntry {
+  const _PhoneEntry({
+    required this.number,
+    required this.label,
+    this.description,
+    this.isDefault = false,
+  });
+
+  final String number;
+  final String label;
+  final String? description;
+  final bool isDefault;
+
+  _PhoneEntry copyWith({
+    String? number,
+    String? label,
+    String? description,
+    bool? isDefault,
+  }) {
+    return _PhoneEntry(
+      number: number ?? this.number,
+      label: label ?? this.label,
+      description: description ?? this.description,
+      isDefault: isDefault ?? this.isDefault,
+    );
+  }
+}
+
+class _LocationEntry {
+  const _LocationEntry({
+    required this.address,
+    required this.label,
+    this.isDefault = false,
+  });
+
+  final String address;
+  final String label;
+  final bool isDefault;
+
+  _LocationEntry copyWith({
+    String? address,
+    String? label,
+    bool? isDefault,
+  }) {
+    return _LocationEntry(
+      address: address ?? this.address,
+      label: label ?? this.label,
+      isDefault: isDefault ?? this.isDefault,
+    );
+  }
 }
 
 class _Customer {
   const _Customer({
     required this.id,
     required this.name,
-    required this.phone,
+    required this.phones,
+    required this.locations,
     required this.balance,
     required this.lastPurchase,
   });
 
   final String id;
   final String name;
-  final String phone;
+  final List<_PhoneEntry> phones;
+  final List<_LocationEntry> locations;
   final double balance;
   final String lastPurchase;
+
+  _PhoneEntry get defaultPhone => phones.firstWhere((p) => p.isDefault, orElse: () => phones.first);
+  _LocationEntry get defaultLocation => locations.firstWhere((l) => l.isDefault, orElse: () => locations.first);
 }

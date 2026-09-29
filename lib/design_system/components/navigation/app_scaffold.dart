@@ -179,7 +179,15 @@ class _AppDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: Icon(Icons.local_shipping),
+            leading: const Icon(Icons.person_outline),
+            title: const Text('Customers'),
+            onTap: () {
+              Navigator.pop(context);
+              context.go('/customers');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.local_shipping),
             title: const Text('Suppliers'),
             onTap: () {
               Navigator.pop(context);
