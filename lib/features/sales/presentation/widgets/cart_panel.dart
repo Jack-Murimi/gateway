@@ -25,7 +25,7 @@ class CartPanel extends StatelessWidget {
 
   final List<SaleLineItem> lineItems;
   final NumberFormat currency;
-  final double grandTotal;
+  final int grandTotal;
   final int totalItems;
   final ValueChanged<int> onRemoveFromCart;
   final void Function(int index, int quantity) onUpdateQuantity;
@@ -344,7 +344,7 @@ class _CartFooter extends StatelessWidget {
     required this.onSave,
   });
 
-  final double grandTotal;
+  final int grandTotal;
   final int totalItems;
   final NumberFormat currency;
   final VoidCallback? onSave;

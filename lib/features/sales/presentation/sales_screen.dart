@@ -10,16 +10,16 @@ import '../../../design_system/components/navigation/branch_selector.dart';
 
 import '../../sales/domain/sales_models.dart';
 import 'widgets/sales_header.dart';
-import 'widgets/cart_panel.dart';
 import 'widgets/return_cylinder_dialog.dart';
 import 'widgets/payment_dialog.dart';
 
-/// Complete Sales screen with adaptive two-pane layout on tablet.
+/// Complete Sales screen — single-column on all screen sizes.
+/// Cart items appear inline below the search bar.
+/// On large screens: keyboard shortcuts F1 (search), F2 (pay), F3 (clear),
+/// and NumpadAdd / Equal (focus last item qty).
 class SalesScreen extends StatefulWidget {
-  /// Creates the Sales screen.
   const SalesScreen({super.key});
 
-  /// Route path.
   static const String routePath = '/sales';
 
   @override
@@ -29,14 +29,21 @@ class SalesScreen extends StatefulWidget {
 class _SalesScreenState extends State<SalesScreen> {
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
-  final _currency = NumberFormat.simpleCurrency(name: 'KES');
+  // en_KE locale for Kenyan Shilling formatting.
+  final _currency = NumberFormat.currency(locale: 'en_KE', symbol: 'KES ', decimalDigits: 0);
+  final _scrollController = ScrollController();
 
-  var _selectedBranchId = 'main';
+  // Default branch is now 'jamhuri' (first in the list).
+  var _selectedBranchId = 'jamhuri';
   var _receiptNumber = '';
   var _selectedDate = DateTime.now();
   var _selectedCustomer = Customer.walkIn;
   var _selectedLocation = Location.defaultLocation;
   final List<SaleLineItem> _lineItems = [];
+
+  // Track the last removed item for undo.
+  SaleLineItem? _lastRemoved;
+  int? _lastRemovedIndex;
 
   final _branches = const [
     BranchOption(id: 'jamhuri', name: 'Jamhuri', color: Color(0xFF2E7D32)),
@@ -93,66 +100,185 @@ class _SalesScreenState extends State<SalesScreen> {
   @override
   void initState() {
     super.initState();
-    _generateReceiptNumber();
     _selectedDate = DateTime.now();
-  }
-
-  void _generateReceiptNumber() {
-    final now = DateTime.now();
-    _receiptNumber = 'REC-${now.year}-${now.millisecondsSinceEpoch % 10000}'
-        .padRight(14, '0');
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
+  /// Stock available for a given product (mock — current branch stock).
+  int _availableStock(String productId) {
+    final product = _products.firstWhere((p) => p.id == productId);
+    return product.stock;
+  }
+
+  /// Current qty in cart for a given product.
+  int _qtyInCart(String productId) {
+    final existing = _lineItems.firstWhere(
+      (item) => item.product.id == productId,
+      orElse: () => SaleLineItem(product: _products.first, quantity: 0),
+    );
+    return existing.quantity;
+  }
+
   void _addToCart(Product product, {int quantity = 1}) {
+    final available = _availableStock(product.id);
+    final inCart = _qtyInCart(product.id);
+    final canAdd = available - inCart;
+
+    if (canAdd <= 0) {
+      _showStockMessage('No more stock available for ${product.name}');
+      return;
+    }
+
+    final toAdd = quantity.clamp(1, canAdd);
+    final wasNew = inCart == 0;
+
     setState(() {
       final existing = _lineItems.indexWhere(
         (item) => item.product.id == product.id,
       );
       if (existing >= 0) {
         _lineItems[existing] = _lineItems[existing].copyWith(
-          quantity: _lineItems[existing].quantity + quantity,
+          quantity: _lineItems[existing].quantity + toAdd,
         );
       } else {
-        _lineItems.add(SaleLineItem(product: product, quantity: quantity));
+        _lineItems.add(SaleLineItem(product: product, quantity: toAdd));
       }
     });
+
+    if (toAdd < quantity) {
+      _showStockMessage(
+        'Only $toAdd of ${product.name} added (stock limit reached)',
+      );
+    }
+
     _searchController.clear();
     _searchFocusNode.requestFocus();
+
+    // Scroll to bottom only when a NEW line is added (not qty update).
+    if (wasNew) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
   }
 
   void _removeFromCart(int index) {
-    setState(() => _lineItems.removeAt(index));
+    if (index < 0 || index >= _lineItems.length) return;
+
+    final removed = _lineItems[index];
+    setState(() {
+      _lastRemoved = removed;
+      _lastRemovedIndex = index;
+      _lineItems.removeAt(index);
+    });
+
+    // Show undo snackbar.
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${removed.product.name} removed'),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: _undoRemove,
+        ),
+      ),
+    );
+  }
+
+  void _undoRemove() {
+    if (_lastRemoved == null || _lastRemovedIndex == null) return;
+    setState(() {
+      final index = _lastRemovedIndex!.clamp(0, _lineItems.length);
+      _lineItems.insert(index, _lastRemoved!);
+      _lastRemoved = null;
+      _lastRemovedIndex = null;
+    });
   }
 
   void _updateQuantity(int index, int quantity) {
+    if (index < 0 || index >= _lineItems.length) return;
+
+    final item = _lineItems[index];
+    final available = _availableStock(item.product.id);
+    final clamped = quantity.clamp(0, available);
+
+    if (clamped < quantity) {
+      _showStockMessage(
+        'Only $available of ${item.product.name} in stock',
+      );
+    }
+
     setState(() {
-      if (quantity <= 0) {
+      if (clamped <= 0) {
         _lineItems.removeAt(index);
       } else {
-        _lineItems[index] = _lineItems[index].copyWith(quantity: quantity);
+        _lineItems[index] = item.copyWith(quantity: clamped);
       }
     });
   }
 
-  void _clearCart() {
-    setState(() {
-      _lineItems.clear();
-      _generateReceiptNumber();
-      _selectedDate = DateTime.now();
-      _selectedCustomer = Customer.walkIn;
-    });
+  Future<void> _clearCart() async {
+    if (_lineItems.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear cart?'),
+        content: Text('Remove all ${_lineItems.length} items from the cart?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      setState(() {
+        _lineItems.clear();
+        _receiptNumber = '';
+        _selectedDate = DateTime.now();
+        _selectedCustomer = Customer.walkIn;
+        _lastRemoved = null;
+        _lastRemovedIndex = null;
+      });
+    }
   }
 
-  double get _grandTotal => _lineItems.fold<double>(
+  void _showStockMessage(String message) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  int get _grandTotal => _lineItems.fold<int>(
     0,
-    (sum, item) => sum + (item.product.price * item.quantity),
+    (sum, item) => sum + item.total,
   );
 
   int get _totalItems => _lineItems.fold<int>(
@@ -178,7 +304,14 @@ class _SalesScreenState extends State<SalesScreen> {
 
     if (paymentResult == null || !mounted) return;
 
-    _clearCart();
+    setState(() {
+      _lineItems.clear();
+      _receiptNumber = '';
+      _selectedDate = DateTime.now();
+      _selectedCustomer = Customer.walkIn;
+      _lastRemoved = null;
+      _lastRemovedIndex = null;
+    });
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -193,7 +326,6 @@ class _SalesScreenState extends State<SalesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Only show keyboard shortcuts on desktop platforms
     final isDesktop = !_isMobilePlatform;
 
     Widget child = AppScaffold(
@@ -229,7 +361,7 @@ class _SalesScreenState extends State<SalesScreen> {
             branches: _branches,
             selectedBranchId: _selectedBranchId,
             onChanged: (id) =>
-                setState(() => _selectedBranchId = id ?? 'main'),
+                setState(() => _selectedBranchId = id ?? 'jamhuri'),
           ),
         ),
       ],
@@ -261,29 +393,22 @@ class _SalesScreenState extends State<SalesScreen> {
 
   Widget _buildBody(BuildContext context) {
     final sizeClass = context.windowSizeClass;
-    // ponytail: use_two_pane threshold — upgrade to LayoutBuilder if
-    // navigation rail width starts varying.
-    final useTwoPane = sizeClass == WindowSizeClass.expanded ||
+    final isLarge = sizeClass == WindowSizeClass.expanded ||
         sizeClass == WindowSizeClass.large;
 
-    if (useTwoPane) {
-      return _TwoPaneLayout(
-        header: _buildHeader(),
-        searchBar: _buildSearchBar(),
-        cart: _buildCart(showHeader: false),
-      );
-    }
-
-    // Compact / medium: single column with floating cart badge
-    return _SinglePaneLayout(
+    return _SingleColumnLayout(
       header: _buildHeader(),
       searchBar: _buildSearchBar(),
-      cart: _buildCart(showHeader: true),
       lineItems: _lineItems,
+      currency: _currency,
       grandTotal: _grandTotal,
       totalItems: _totalItems,
-      currency: _currency,
+      scrollController: _scrollController,
+      onRemoveFromCart: _removeFromCart,
+      onUpdateQuantity: _updateQuantity,
+      onClearCart: _clearCart,
       onSave: _lineItems.isNotEmpty ? _save : null,
+      showFloatingBar: !isLarge,
     );
   }
 
@@ -318,20 +443,6 @@ class _SalesScreenState extends State<SalesScreen> {
     );
   }
 
-  Widget _buildCart({required bool showHeader}) {
-    return CartPanel(
-      lineItems: _lineItems,
-      currency: _currency,
-      grandTotal: _grandTotal,
-      totalItems: _totalItems,
-      onRemoveFromCart: _removeFromCart,
-      onUpdateQuantity: _updateQuantity,
-      onClearCart: _clearCart,
-      onSave: _lineItems.isNotEmpty ? _save : null,
-      showHeader: showHeader,
-    );
-  }
-
   void _handleNavigation(BuildContext context, int index) {
     switch (index) {
       case 0:
@@ -349,196 +460,492 @@ class _SalesScreenState extends State<SalesScreen> {
   }
 }
 
-/// Two-pane layout for expanded/large screens.
-/// Left: header + search + cart items. Right: cart summary.
-class _TwoPaneLayout extends StatelessWidget {
-  const _TwoPaneLayout({
+// ---------------------------------------------------------------------------
+// Single-column layout — used on ALL screen sizes.
+// Cart items live inline (no right panel). Footer pinned to bottom.
+// ---------------------------------------------------------------------------
+class _SingleColumnLayout extends StatelessWidget {
+  const _SingleColumnLayout({
     required this.header,
     required this.searchBar,
-    required this.cart,
-  });
-
-  final Widget header;
-  final Widget searchBar;
-  final Widget cart;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Row(
-      children: [
-        // Left pane: header + search
-        Expanded(
-          flex: 3,
-          child: Column(
-            children: [
-              header,
-              const Divider(height: 1),
-              searchBar,
-            ],
-          ),
-        ),
-        VerticalDivider(
-          width: 1,
-          color: colorScheme.outlineVariant,
-        ),
-        // Right pane: cart
-        Expanded(
-          flex: 2,
-          child: cart,
-        ),
-      ],
-    );
-  }
-}
-
-/// Single-column layout for compact/medium screens.
-/// Cart accessed via bottom sheet triggered by floating action bar.
-class _SinglePaneLayout extends StatelessWidget {
-  const _SinglePaneLayout({
-    required this.header,
-    required this.searchBar,
-    required this.cart,
     required this.lineItems,
+    required this.currency,
     required this.grandTotal,
     required this.totalItems,
-    required this.currency,
+    required this.scrollController,
+    required this.onRemoveFromCart,
+    required this.onUpdateQuantity,
+    required this.onClearCart,
     required this.onSave,
+    required this.showFloatingBar,
   });
 
   final Widget header;
   final Widget searchBar;
-  final Widget cart;
   final List<SaleLineItem> lineItems;
-  final double grandTotal;
-  final int totalItems;
   final NumberFormat currency;
+  final int grandTotal;
+  final int totalItems;
+  final ScrollController scrollController;
+  final ValueChanged<int> onRemoveFromCart;
+  final void Function(int index, int quantity) onUpdateQuantity;
+  final VoidCallback onClearCart;
   final VoidCallback? onSave;
+  final bool showFloatingBar;
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
+    final colorScheme = Theme.of(context).colorScheme;
+    final screenWidth = MediaQuery.sizeOf(context).width;
 
-    return Stack(
+    // On large screens the footer is constrained + right-aligned.
+    final isLarge = !showFloatingBar;
+    final footerMaxWidth = isLarge ? 420.0 : double.infinity;
+
+    return Column(
       children: [
-        SingleChildScrollView(
-          padding: EdgeInsets.only(bottom: lineItems.isNotEmpty ? 80 : 0),
-          child: Column(
-            children: [
-              header,
-              const Divider(height: 1),
-              searchBar,
+        // Scrollable content: header + search + cart items
+        Expanded(
+          child: CustomScrollView(
+            controller: scrollController,
+            slivers: [
+              // Header + search
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    header,
+                    const Divider(height: 1),
+                    searchBar,
+                  ],
+                ),
+              ),
+
+              // Inline cart items
+              if (lineItems.isNotEmpty) ...[
+                // Cart section header
+                SliverToBoxAdapter(
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: spacing.lg,
+                      vertical: spacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerLow,
+                      border: Border(
+                        bottom: BorderSide(color: colorScheme.outlineVariant),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.shopping_cart_outlined,
+                          size: 18,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        SizedBox(width: spacing.sm),
+                        Text(
+                          'Cart',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(width: spacing.sm),
+                        Badge(
+                          label: Text('$totalItems'),
+                          backgroundColor: colorScheme.primary,
+                          textColor: colorScheme.onPrimary,
+                        ),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: onClearCart,
+                          icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                          label: const Text('Clear'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: colorScheme.error,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Cart line items
+                SliverList.builder(
+                  itemCount: lineItems.length,
+                  itemBuilder: (context, index) {
+                    final item = lineItems[index];
+                    return _InlineCartTile(
+                      item: item,
+                      currency: currency,
+                      onRemove: () => onRemoveFromCart(index),
+                      onIncrement: () => onUpdateQuantity(index, item.quantity + 1),
+                      onDecrement: () => onUpdateQuantity(index, item.quantity - 1),
+                      onQuantityEdited: (qty) => onUpdateQuantity(index, qty),
+                    );
+                  },
+                ),
+              ],
             ],
           ),
         ),
-        // Floating cart bar at bottom
+
+        // Pinned footer at the bottom
         if (lineItems.isNotEmpty)
-          Positioned(
-            left: spacing.lg,
-            right: spacing.lg,
-            bottom: spacing.lg,
-            child: _FloatingCartBar(
-              totalItems: totalItems,
-              grandTotal: grandTotal,
-              currency: currency,
-              onTap: () => _showCartSheet(context),
-              onSave: onSave,
+          Align(
+            alignment: isLarge ? Alignment.bottomRight : Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: footerMaxWidth.isInfinite ? screenWidth : footerMaxWidth,
+              ),
+              child: _InlineCartFooter(
+                grandTotal: grandTotal,
+                totalItems: totalItems,
+                currency: currency,
+                onSave: onSave,
+                elevated: isLarge,
+              ),
             ),
           ),
       ],
     );
   }
-
-  void _showCartSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.75,
-        minChildSize: 0.4,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (context, scrollController) => cart,
-      ),
-    );
-  }
 }
 
-/// Floating bottom bar showing cart summary on phone.
-class _FloatingCartBar extends StatelessWidget {
-  const _FloatingCartBar({
-    required this.totalItems,
-    required this.grandTotal,
+// ---------------------------------------------------------------------------
+// Inline cart tile — FocusNode is owned by the tile itself (no race).
+// Qty commit fires once, only when field has focus.
+// ---------------------------------------------------------------------------
+class _InlineCartTile extends StatefulWidget {
+  const _InlineCartTile({
+    required this.item,
     required this.currency,
-    required this.onTap,
-    required this.onSave,
+    required this.onRemove,
+    required this.onIncrement,
+    required this.onDecrement,
+    required this.onQuantityEdited,
   });
 
-  final int totalItems;
-  final double grandTotal;
+  final SaleLineItem item;
   final NumberFormat currency;
-  final VoidCallback onTap;
-  final VoidCallback? onSave;
+  final VoidCallback onRemove;
+  final VoidCallback onIncrement;
+  final VoidCallback onDecrement;
+  final ValueChanged<int> onQuantityEdited;
+
+  @override
+  State<_InlineCartTile> createState() => _InlineCartTileState();
+}
+
+class _InlineCartTileState extends State<_InlineCartTile> {
+  late final TextEditingController _qtyController;
+  late final FocusNode _qtyFocusNode;
+  var _hasCommitted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _qtyController = TextEditingController(text: '${widget.item.quantity}');
+    _qtyFocusNode = FocusNode();
+    _qtyFocusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(_InlineCartTile old) {
+    super.didUpdateWidget(old);
+    if (old.item.quantity != widget.item.quantity) {
+      final text = '${widget.item.quantity}';
+      if (_qtyController.text != text) {
+        _qtyController.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+      }
+      _hasCommitted = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _qtyFocusNode.removeListener(_onFocusChange);
+    _qtyFocusNode.dispose();
+    _qtyController.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (!_qtyFocusNode.hasFocus && !_hasCommitted) {
+      _commitQty();
+    }
+  }
+
+  void _commitQty() {
+    if (_hasCommitted) return;
+    _hasCommitted = true;
+
+    final parsed = int.tryParse(_qtyController.text.trim());
+    if (parsed != null && parsed > 0) {
+      widget.onQuantityEdited(parsed);
+    } else if (parsed != null && parsed <= 0) {
+      widget.onRemove();
+    } else {
+      // Reset to current valid value.
+      _qtyController.text = '${widget.item.quantity}';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final spacing = context.spacing;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return Material(
-      elevation: 8,
-      borderRadius: BorderRadius.circular(spacing.lg),
-      color: colorScheme.primaryContainer,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(spacing.lg),
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: spacing.lg,
-            vertical: spacing.md,
-          ),
-          child: Row(
-            children: [
-              Badge(
-                label: Text('$totalItems'),
-                child: Icon(
-                  Icons.shopping_cart,
-                  color: colorScheme.onPrimaryContainer,
-                ),
+    return Dismissible(
+      key: ValueKey(widget.item.product.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Remove item?'),
+            content: Text('Remove ${widget.item.product.name} from cart?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
               ),
-              SizedBox(width: spacing.lg),
-              Expanded(
-                child: Text(
-                  currency.format(grandTotal),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onPrimaryContainer,
-                  ),
-                ),
-              ),
-              FilledButton.icon(
-                onPressed: onSave,
-                icon: const Icon(Icons.check, size: 18),
-                label: const Text('Pay'),
-                style: FilledButton.styleFrom(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: spacing.lg,
-                    vertical: spacing.sm,
-                  ),
-                ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Remove'),
               ),
             ],
           ),
+        );
+        return confirm == true;
+      },
+      onDismissed: (_) => widget.onRemove(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: EdgeInsets.only(right: spacing.xl),
+        color: colorScheme.errorContainer,
+        child: Icon(Icons.delete, color: colorScheme.onErrorContainer),
+      ),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: spacing.lg,
+          vertical: spacing.md,
+        ),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Product info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.item.product.name,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: spacing.xs),
+                  Text(
+                    '${widget.currency.format(widget.item.product.price)} each',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(width: spacing.sm),
+
+            // Quantity controls — stepper + editable input
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(spacing.sm),
+                border: Border.all(color: colorScheme.outlineVariant),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _QtyButton(
+                    icon: widget.item.quantity <= 1
+                        ? Icons.delete_outline
+                        : Icons.remove,
+                    onPressed: widget.onDecrement,
+                    color: widget.item.quantity <= 1 ? colorScheme.error : null,
+                  ),
+                  SizedBox(
+                    width: 48,
+                    child: TextField(
+                      controller: _qtyController,
+                      focusNode: _qtyFocusNode,
+                      textAlign: TextAlign.center,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                        isDense: true,
+                      ),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      onSubmitted: (_) {
+                        _commitQty();
+                        _qtyFocusNode.unfocus();
+                      },
+                    ),
+                  ),
+                  _QtyButton(
+                    icon: Icons.add,
+                    onPressed: widget.onIncrement,
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(width: spacing.md),
+
+            // Line total
+            SizedBox(
+              width: 80,
+              child: Text(
+                widget.currency.format(widget.item.total),
+                textAlign: TextAlign.right,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// Search bar with inline autocomplete for adding products.
+/// Quantity stepper button.
+class _QtyButton extends StatelessWidget {
+  const _QtyButton({
+    required this.icon,
+    required this.onPressed,
+    this.color,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: IconButton(
+        icon: Icon(icon, size: 16),
+        onPressed: onPressed,
+        color: color,
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
+}
+
+/// Pinned cart footer — sits at the bottom of the screen.
+/// On large screens: constrained width, elevated card style, right-aligned.
+/// On compact: full-width bar flush to the bottom.
+class _InlineCartFooter extends StatelessWidget {
+  const _InlineCartFooter({
+    required this.grandTotal,
+    required this.totalItems,
+    required this.currency,
+    required this.onSave,
+    this.elevated = false,
+  });
+
+  final int grandTotal;
+  final int totalItems;
+  final NumberFormat currency;
+  final VoidCallback? onSave;
+  final bool elevated;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final content = SafeArea(
+      child: Padding(
+        padding: EdgeInsets.all(spacing.lg),
+        child: Row(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$totalItems item${totalItems == 1 ? '' : 's'}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                SizedBox(height: spacing.xs),
+                Text(
+                  currency.format(grandTotal),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            FilledButton.icon(
+              onPressed: onSave,
+              icon: const Icon(Icons.payment, size: 20),
+              label: Text('Pay ${currency.format(grandTotal)}'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (elevated) {
+      return Material(
+        elevation: 8,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        color: colorScheme.surfaceContainerLow,
+        child: content,
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
+      ),
+      child: content,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Product search bar with inline autocomplete.
+// ---------------------------------------------------------------------------
 class _ProductSearchBar extends StatefulWidget {
   const _ProductSearchBar({
     required this.searchController,
@@ -706,4 +1113,3 @@ class _ProductSearchBarState extends State<_ProductSearchBar> {
     );
   }
 }
-

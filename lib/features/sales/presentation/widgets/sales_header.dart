@@ -67,6 +67,9 @@ class SalesHeader extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// One-row header (large screens)
+// ---------------------------------------------------------------------------
 class _OneRowHeader extends StatelessWidget {
   const _OneRowHeader({
     required this.date,
@@ -93,18 +96,23 @@ class _OneRowHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
-    final dateFormatter = DateFormat.yMd();
 
     return Padding(
       padding: spacing.page,
       child: Row(
         children: [
           Expanded(
-            child: _buildDateField(context, dateFormatter),
+            child: _DateField(
+              date: date,
+              onDateChanged: onDateChanged,
+            ),
           ),
           SizedBox(width: spacing.md),
           Expanded(
-            child: _buildReceiptField(context),
+            child: _ReceiptField(
+              receiptNumber: receiptNumber,
+              onChanged: onReceiptNumberChanged,
+            ),
           ),
           SizedBox(width: spacing.lg),
           Expanded(
@@ -121,57 +129,11 @@ class _OneRowHeader extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildDateField(BuildContext context, DateFormat dateFormatter) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('Date', style: Theme.of(context).textTheme.labelSmall),
-        const SizedBox(height: 4),
-        InkWell(
-          onTap: onDateChanged == null
-              ? null
-              : () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: date,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) onDateChanged!(picked);
-                },
-          child: Text(
-            dateFormatter.format(date),
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildReceiptField(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('Receipt #', style: Theme.of(context).textTheme.labelSmall),
-        const SizedBox(height: 4),
-        TextFormField(
-          initialValue: receiptNumber,
-          style: const TextStyle(fontWeight: FontWeight.w500),
-          decoration: const InputDecoration(
-            isDense: true,
-            
-            border: OutlineInputBorder(),
-          ),
-          onChanged: onReceiptNumberChanged,
-        ),
-      ],
-    );
-  }
 }
 
+// ---------------------------------------------------------------------------
+// Two-row header (compact / medium screens)
+// ---------------------------------------------------------------------------
 class _TwoRowHeader extends StatelessWidget {
   const _TwoRowHeader({
     required this.date,
@@ -198,7 +160,6 @@ class _TwoRowHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
-    final dateFormatter = DateFormat.yMd();
 
     return Padding(
       padding: spacing.page,
@@ -208,39 +169,15 @@ class _TwoRowHeader extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: TextFormField(
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    hintText: "Date",
-                    
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.calendar_today, size: 16),
-                  ),
-                  controller: TextEditingController(text: dateFormatter.format(date)),
-                  onTap: onDateChanged == null
-                      ? null
-                      : () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: date,
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
-                          );
-                          if (picked != null) onDateChanged!(picked);
-                        },
+                child: _DateField(
+                  date: date,
+                  onDateChanged: onDateChanged,
                 ),
               ),
               SizedBox(width: spacing.sm),
               Expanded(
-                child: TextFormField(
-                  initialValue: receiptNumber,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    hintText: 'Receipt / Invoice #',
-                    
-                    border: OutlineInputBorder(),
-                  ),
+                child: _ReceiptField(
+                  receiptNumber: receiptNumber,
                   onChanged: onReceiptNumberChanged,
                 ),
               ),
@@ -260,6 +197,80 @@ class _TwoRowHeader extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Date field — tappable, bordered, calendar icon in accent color.
+// ---------------------------------------------------------------------------
+class _DateField extends StatelessWidget {
+  const _DateField({required this.date, this.onDateChanged});
+
+  final DateTime date;
+  final ValueChanged<DateTime>? onDateChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final dateFormatter = DateFormat.yMd();
+
+    // Using a read-only TextFormField so we get consistent bordered styling.
+    // A new controller is built from the current date value each build;
+    // that's fine since the field is read-only.
+    return TextFormField(
+      readOnly: true,
+      controller: TextEditingController(text: dateFormatter.format(date)),
+      decoration: InputDecoration(
+        isDense: true,
+        labelText: 'Date',
+        border: const OutlineInputBorder(),
+        prefixIcon: Icon(
+          Icons.calendar_today,
+          size: 18,
+          color: colorScheme.primary, // accent color
+        ),
+      ),
+      onTap: onDateChanged == null
+          ? null
+          : () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: date,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) onDateChanged!(picked);
+            },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Receipt / invoice number field — always empty on new sale.
+// ---------------------------------------------------------------------------
+class _ReceiptField extends StatelessWidget {
+  const _ReceiptField({required this.receiptNumber, this.onChanged});
+
+  final String receiptNumber;
+  final ValueChanged<String>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      // key on the value so Flutter rebuilds + re-initialises when cleared.
+      key: ValueKey(receiptNumber.isEmpty ? '__empty__' : receiptNumber),
+      initialValue: receiptNumber.isEmpty ? null : receiptNumber,
+      decoration: const InputDecoration(
+        isDense: true,
+        labelText: 'Receipt / Invoice #',
+        hintText: 'Enter receipt or invoice number',
+        border: OutlineInputBorder(),
+      ),
+      onChanged: onChanged,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Customer autocomplete field — person icon in accent color.
+// ---------------------------------------------------------------------------
 class _CustomerField extends StatefulWidget {
   const _CustomerField({
     required this.selectedCustomer,
@@ -373,16 +384,21 @@ class _CustomerFieldState extends State<_CustomerField> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Customer', style: Theme.of(context).textTheme.labelSmall),
-        const SizedBox(height: 4),
         KeyboardListener(
           focusNode: _focusNode,
           onKeyEvent: _handleKey,
           child: TextFormField(
             controller: _controller,
             decoration: InputDecoration(
-              hintText: 'Search customer by name or phone',
-              prefixIcon: const Icon(Icons.person_outline),
+              isDense: true,
+              labelText: 'Customer',
+              hintText: 'Search by name or phone',
+              border: const OutlineInputBorder(),
+              // Person icon in accent (primary) color.
+              prefixIcon: Icon(
+                Icons.person_outline,
+                color: colorScheme.primary,
+              ),
               suffixIcon: widget.selectedCustomer.isWalkIn
                   ? null
                   : IconButton(
@@ -392,13 +408,6 @@ class _CustomerFieldState extends State<_CustomerField> {
                         widget.onCustomerChanged(Customer.walkIn);
                       },
                     ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
             ),
             onChanged: (value) {
               _filterCustomers(value);
@@ -483,6 +492,3 @@ class _CustomerFieldState extends State<_CustomerField> {
     );
   }
 }
-
-
-

@@ -50,7 +50,7 @@ class PaymentEntry {
 /// Shows the payment dialog.
 Future<PaymentResult?> showPaymentDialog(
   BuildContext context, {
-  required double grandTotal,
+  required int grandTotal,
   required NumberFormat currency,
   required Customer customer,
 }) async {
@@ -72,7 +72,7 @@ class _PaymentDialog extends StatefulWidget {
     required this.customer,
   });
 
-  final double grandTotal;
+  final int grandTotal;
   final NumberFormat currency;
   final Customer customer;
 
@@ -96,7 +96,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   void initState() {
     super.initState();
     _payments = [];
-    _amountController.text = widget.grandTotal.toStringAsFixed(0);
+    _amountController.text = widget.grandTotal.toString();
   }
 
   @override
