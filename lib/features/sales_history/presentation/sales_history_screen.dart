@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../app/providers/receipt_providers.dart';
 import '../../../design_system/components/buttons/app_button.dart';
+import '../../../design_system/components/dialogs/app_dialog.dart';
 import '../../../design_system/components/feedback/feedback_views.dart';
 import '../../../design_system/components/inputs/app_text_field.dart';
 import '../../../design_system/components/layout/section_header.dart';
-import '../../../design_system/components/navigation/app_scaffold.dart';
 import '../../../design_system/components/status/status_badge.dart';
 import '../../../design_system/theme/theme_extensions.dart';
+import '../../branches/application/branch_providers.dart';
+import '../../customers/application/customer_providers.dart';
+import '../../sales/domain/sales_models.dart';
+import '../../sales/application/sale_providers.dart';
 
 /// Sales history screen with transaction records.
-class SalesHistoryScreen extends StatefulWidget {
+class SalesHistoryScreen extends ConsumerStatefulWidget {
   /// Creates the sales history screen.
   const SalesHistoryScreen({super.key});
 
@@ -19,54 +24,13 @@ class SalesHistoryScreen extends StatefulWidget {
   static const String routePath = '/sales-history';
 
   @override
-  State<SalesHistoryScreen> createState() => _SalesHistoryScreenState();
+  ConsumerState<SalesHistoryScreen> createState() => _SalesHistoryScreenState();
 }
 
-class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
+class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   final _searchController = TextEditingController();
-
-  static const _transactions = [
-    _Transaction(
-      id: 'TXN001',
-      date: '2024-01-15 14:32',
-      customer: 'John Kamau',
-      items: 3,
-      total: 8500,
-      status: _TxStatus.completed,
-    ),
-    _Transaction(
-      id: 'TXN002',
-      date: '2024-01-15 13:45',
-      customer: 'Mary Wanjiku',
-      items: 1,
-      total: 3300,
-      status: _TxStatus.completed,
-    ),
-    _Transaction(
-      id: 'TXN003',
-      date: '2024-01-15 12:20',
-      customer: 'Walk-in',
-      items: 2,
-      total: 7250,
-      status: _TxStatus.completed,
-    ),
-    _Transaction(
-      id: 'TXN004',
-      date: '2024-01-15 11:15',
-      customer: 'Peter Ochieng',
-      items: 4,
-      total: 14200,
-      status: _TxStatus.pending,
-    ),
-    _Transaction(
-      id: 'TXN005',
-      date: '2024-01-14 16:30',
-      customer: 'Grace Muthoni',
-      items: 2,
-      total: 5600,
-      status: _TxStatus.completed,
-    ),
-  ];
+  final _selectedBranchId = 'jamhuri'; // ponytail: use currentBranchProvider
+  var _searchQuery = '';
 
   @override
   void dispose() {
@@ -76,71 +40,53 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currency = NumberFormat.simpleCurrency(name: 'KES');
+    final currency = NumberFormat.currency(locale: 'en_KE', symbol: 'KES ', decimalDigits: 0);
+    final salesAsync = ref.watch(branchSalesProvider(_selectedBranchId));
 
-    return AppScaffold(
-      title: 'Sales History',
-      selectedIndex: 0,
-      onDestinationSelected: (index) => _handleNavigation(context, index),
-      destinations: const [
-        AppNavDestination(
-          label: 'Sales',
-          icon: Icons.point_of_sale_outlined,
-          selectedIcon: Icons.point_of_sale,
-        ),
-        AppNavDestination(
-          label: 'History',
-          icon: Icons.history_outlined,
-          selectedIcon: Icons.history,
-        ),
-        AppNavDestination(
-          label: 'Reports',
-          icon: Icons.query_stats_outlined,
-          selectedIcon: Icons.query_stats,
-        ),
-        AppNavDestination(
-          label: 'Settings',
-          icon: Icons.settings_outlined,
-          selectedIcon: Icons.settings,
-        ),
-      ],
-      body: _SalesHistoryContent(
-        searchController: _searchController,
-        transactions: _transactions,
-        currency: currency,
+    return salesAsync.when(
+      data: (sales) {
+        final filtered = _searchQuery.isEmpty
+            ? sales
+            : sales.where((s) {
+                final query = _searchQuery.toLowerCase();
+                return s.receiptNumber.toLowerCase().contains(query) ||
+                       s.customerId.toLowerCase().contains(query) ||
+                       s.id.toLowerCase().contains(query);
+              }).toList();
+
+        return _SalesHistoryContent(
+          searchController: _searchController,
+          sales: filtered,
+          currency: currency,
+          onSearchChanged: (q) => setState(() => _searchQuery = q),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => ErrorView(
+        title: 'Failed to load sales',
+        message: e.toString(),
       ),
     );
-  }
-
-  void _handleNavigation(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        context.go('/sales');
-        break;
-      case 2:
-        context.go('/reports');
-        break;
-      case 3:
-        context.go('/settings');
-        break;
-    }
   }
 }
 
 class _SalesHistoryContent extends StatelessWidget {
   const _SalesHistoryContent({
     required this.searchController,
-    required this.transactions,
+    required this.sales,
     required this.currency,
+    required this.onSearchChanged,
   });
 
   final TextEditingController searchController;
-  final List<_Transaction> transactions;
+  final List<Sale> sales;
   final NumberFormat currency;
+  final ValueChanged<String> onSearchChanged;
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
+    final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
 
     return SingleChildScrollView(
       padding: spacing.page,
@@ -155,36 +101,39 @@ class _SalesHistoryContent extends StatelessWidget {
           AppSearchField(
             label: 'Search transactions',
             controller: searchController,
-            hintText: 'ID, customer, or date',
+            hintText: 'Receipt, customer, or ID',
+            onChanged: onSearchChanged,
           ),
           SizedBox(height: spacing.lg),
-          if (transactions.isEmpty)
+          if (sales.isEmpty)
             const EmptyView(
               title: 'No transactions',
               message: 'Sales history will appear here.',
             )
           else
             Column(
-              children: transactions.map((tx) {
+              children: sales.map((sale) {
+                final total = sale.lines.fold<int>(0, (sum, l) => sum + l.total);
+                
                 return Card(
                   margin: EdgeInsets.only(bottom: spacing.md),
                   child: ListTile(
                     leading: const CircleAvatar(child: Icon(Icons.receipt)),
-                    title: Text(tx.id),
-                    subtitle: Text('${tx.date} • ${tx.customer}'),
+                    title: Text(sale.receiptNumber),
+                    subtitle: Text('${dateFormat.format(sale.date)} • ${sale.customerId}'),
                     trailing: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          currency.format(tx.total),
+                          currency.format(total),
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         SizedBox(height: spacing.xs),
-                        _StatusChip(status: tx.status),
+                        _StatusChip(status: sale.status),
                       ],
                     ),
-                    onTap: () => _showTransactionDetails(context, tx, currency),
+                    onTap: () => _showSaleDetails(context, sale, currency),
                   ),
                 );
               }).toList(),
@@ -194,15 +143,15 @@ class _SalesHistoryContent extends StatelessWidget {
     );
   }
 
-  void _showTransactionDetails(
+  void _showSaleDetails(
     BuildContext context,
-    _Transaction tx,
+    Sale sale,
     NumberFormat currency,
   ) {
     showDialog(
       context: context,
       builder: (context) =>
-          _TransactionDetailDialog(tx: tx, currency: currency),
+          _SaleDetailDialog(sale: sale, currency: currency),
     );
   }
 }
@@ -210,43 +159,56 @@ class _SalesHistoryContent extends StatelessWidget {
 class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.status});
 
-  final _TxStatus status;
+  final SaleStatus status;
 
   @override
   Widget build(BuildContext context) {
     final (label, appStatus) = switch (status) {
-      _TxStatus.completed => ('Completed', AppStatus.success),
-      _TxStatus.pending => ('Pending', AppStatus.warning),
-      _TxStatus.cancelled => ('Cancelled', AppStatus.danger),
+      SaleStatus.completed => ('Completed', AppStatus.success),
+      SaleStatus.credit => ('Credit', AppStatus.warning),
+      SaleStatus.voided => ('Voided', AppStatus.danger),
+      SaleStatus.cancelled => ('Cancelled', AppStatus.danger),
+      SaleStatus.draft => ('Draft', AppStatus.info),
     };
 
     return StatusBadge(label: label, status: appStatus);
   }
 }
 
-class _TransactionDetailDialog extends StatelessWidget {
-  const _TransactionDetailDialog({required this.tx, required this.currency});
+class _SaleDetailDialog extends ConsumerWidget {
+  const _SaleDetailDialog({required this.sale, required this.currency});
 
-  final _Transaction tx;
+  final Sale sale;
   final NumberFormat currency;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final spacing = context.spacing;
+    final dateFormat = DateFormat('yyyy-MM-dd HH:mm');
+    final total = sale.lines.fold<int>(0, (sum, l) => sum + l.total);
 
-    return AlertDialog(
-      title: Text(tx.id),
+    return AppDialog(
+      title: Text(sale.receiptNumber),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Date: ${tx.date}'),
+          Text('Date: ${dateFormat.format(sale.date)}'),
           SizedBox(height: spacing.sm),
-          Text('Customer: ${tx.customer}'),
+          Text('Customer: ${sale.customerId}'),
           SizedBox(height: spacing.sm),
-          Text('Items: ${tx.items}'),
+          Text('Branch: ${sale.branchId}'),
           SizedBox(height: spacing.sm),
-          Text('Total: ${currency.format(tx.total)}'),
+          Text('Items: ${sale.lines.length}'),
+          SizedBox(height: spacing.sm),
+          Text('Total: ${currency.format(total / 100.0)}'),
+          SizedBox(height: spacing.sm),
+          Text('Status: ${sale.status.name}'),
+          if (sale.voidReason != null) ...[
+            SizedBox(height: spacing.sm),
+            Text('Void Reason: ${sale.voidReason}', 
+              style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ],
         ],
       ),
       actions: [
@@ -257,32 +219,36 @@ class _TransactionDetailDialog extends StatelessWidget {
         Expanded(
           child: AppButton(
             label: 'Print Receipt',
-            onPressed: () {
-              Navigator.of(context).pop();
+            onPressed: () async {
+              final receiptService = ref.read(receiptServiceProvider);
+              final branches = ref.read(branchesProvider);
+              final customers = await ref.read(customersProvider.future);
+              
+              final branch = branches.firstWhere(
+                (b) => b.id == sale.branchId,
+                orElse: () => branches.first,
+              );
+              final customer = customers.firstWhere(
+                (c) => c.id == sale.customerId,
+                orElse: () => customers.first,
+              );
+              
+              await receiptService.shareReceipt(
+                sale,
+                branchName: branch.name,
+                customerName: customer.name,
+              );
+              
+              if (context.mounted) {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Receipt copied to clipboard')),
+                );
+              }
             },
           ),
         ),
       ],
     );
   }
-}
-
-enum _TxStatus { completed, pending, cancelled }
-
-class _Transaction {
-  const _Transaction({
-    required this.id,
-    required this.date,
-    required this.customer,
-    required this.items,
-    required this.total,
-    required this.status,
-  });
-
-  final String id;
-  final String date;
-  final String customer;
-  final int items;
-  final double total;
-  final _TxStatus status;
 }

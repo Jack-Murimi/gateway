@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../design_system/components/buttons/app_button.dart';
+import '../../../design_system/components/dialogs/app_dialog.dart';
 import '../../../design_system/components/feedback/feedback_views.dart';
 import '../../../design_system/components/inputs/app_text_field.dart';
 import '../../../design_system/components/layout/section_header.dart';
-import '../../../design_system/components/navigation/app_scaffold.dart';
 import '../../../design_system/components/people/party_tiles.dart';
 import '../../../design_system/components/status/status_badge.dart';
 import '../../../design_system/theme/theme_extensions.dart';
+import '../application/supplier_providers.dart';
+import '../domain/supplier.dart';
 
 /// Suppliers screen with search and details.
-class SuppliersScreen extends StatefulWidget {
+class SuppliersScreen extends ConsumerStatefulWidget {
   /// Creates the suppliers screen.
   const SuppliersScreen({super.key});
 
@@ -20,99 +22,60 @@ class SuppliersScreen extends StatefulWidget {
   static const String routePath = '/suppliers';
 
   @override
-  State<SuppliersScreen> createState() => _SuppliersScreenState();
+  ConsumerState<SuppliersScreen> createState() => _SuppliersScreenState();
 }
 
-class _SuppliersScreenState extends State<SuppliersScreen> {
+class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
   final _searchController = TextEditingController();
+  String _searchQuery = '';
 
-  static const _suppliers = [
-    _Supplier(
-      id: '1',
-      name: 'Kenya Gas Ltd',
-      phone: '+254720111222',
-      balance: -45000,
-      lastDelivery: '2024-01-15',
-    ),
-    _Supplier(
-      id: '2',
-      name: 'Pro Gas Kenya',
-      phone: '+254733222333',
-      balance: 0,
-      lastDelivery: '2024-01-12',
-    ),
-    _Supplier(
-      id: '3',
-      name: 'Total Energies',
-      phone: '+254744333444',
-      balance: -120000,
-      lastDelivery: '2024-01-10',
-    ),
-    _Supplier(
-      id: '4',
-      name: 'Hashi Energy',
-      phone: '+254755444555',
-      balance: 25000,
-      lastDelivery: '2024-01-08',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.trim().toLowerCase();
+    });
+  }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final suppliersAsync = ref.watch(supplierListProvider);
     final currency = NumberFormat.simpleCurrency(name: 'KES');
 
-    return AppScaffold(
-      title: 'Suppliers',
-      selectedIndex: 1,
-      onDestinationSelected: (index) => _handleNavigation(context, index),
-      destinations: const [
-        AppNavDestination(
-          label: 'Sales',
-          icon: Icons.point_of_sale_outlined,
-          selectedIcon: Icons.point_of_sale,
-        ),
-        AppNavDestination(
-          label: 'Suppliers',
-          icon: Icons.local_shipping_outlined,
-          selectedIcon: Icons.local_shipping,
-        ),
-        AppNavDestination(
-          label: 'Reports',
-          icon: Icons.query_stats_outlined,
-          selectedIcon: Icons.query_stats,
-        ),
-        AppNavDestination(
-          label: 'Settings',
-          icon: Icons.settings_outlined,
-          selectedIcon: Icons.settings,
-        ),
-      ],
-      body: _SuppliersContent(
-        searchController: _searchController,
-        suppliers: _suppliers,
-        currency: currency,
+    return suppliersAsync.when(
+      data: (suppliers) {
+        final filtered = _searchQuery.isEmpty
+            ? suppliers
+            : suppliers.where((s) {
+                return s.name.toLowerCase().contains(_searchQuery) ||
+                    s.phone.contains(_searchQuery) ||
+                    s.id.toLowerCase().contains(_searchQuery);
+              }).toList();
+
+        return _SuppliersContent(
+          searchController: _searchController,
+          suppliers: filtered,
+          currency: currency,
+        );
+      },
+      loading: () => const LoadingView(),
+      error: (err, stack) => ErrorView(
+        title: 'Failed to load suppliers',
+        message: err.toString(),
+        onRetry: () => ref.invalidate(supplierListProvider),
       ),
     );
-  }
-
-  void _handleNavigation(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        context.go('/sales');
-        break;
-      case 2:
-        context.go('/reports');
-        break;
-      case 3:
-        context.go('/settings');
-        break;
-    }
   }
 }
 
@@ -124,7 +87,7 @@ class _SuppliersContent extends StatelessWidget {
   });
 
   final TextEditingController searchController;
-  final List<_Supplier> suppliers;
+  final List<Supplier> suppliers;
   final NumberFormat currency;
 
   @override
@@ -144,13 +107,13 @@ class _SuppliersContent extends StatelessWidget {
           AppSearchField(
             label: 'Search suppliers',
             controller: searchController,
-            hintText: 'Name or phone',
+            hintText: 'Name, phone, or ID',
           ),
           SizedBox(height: spacing.lg),
           if (suppliers.isEmpty)
             const EmptyView(
               title: 'No suppliers found',
-              message: 'Add your first supplier to get started.',
+              message: 'Try a different search term.',
             )
           else
             Column(
@@ -174,7 +137,7 @@ class _SuppliersContent extends StatelessWidget {
 
   void _showSupplierDetails(
     BuildContext context,
-    _Supplier supplier,
+    Supplier supplier,
     NumberFormat currency,
   ) {
     showDialog(
@@ -188,7 +151,7 @@ class _SuppliersContent extends StatelessWidget {
 class _BalanceChip extends StatelessWidget {
   const _BalanceChip({required this.balance, required this.currency});
 
-  final double balance;
+  final int balance;
   final NumberFormat currency;
 
   @override
@@ -196,34 +159,47 @@ class _BalanceChip extends StatelessWidget {
     final status = balance < 0
         ? AppStatus.danger
         : balance > 0
-        ? AppStatus.success
-        : AppStatus.neutral;
+            ? AppStatus.success
+            : AppStatus.neutral;
 
-    return StatusBadge(label: currency.format(balance.abs()), status: status);
+    final amountKes = balance.abs() / 100.0;
+    return StatusBadge(label: currency.format(amountKes), status: status);
   }
 }
 
 class _SupplierDetailDialog extends StatelessWidget {
   const _SupplierDetailDialog({required this.supplier, required this.currency});
 
-  final _Supplier supplier;
+  final Supplier supplier;
   final NumberFormat currency;
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
+    final balanceKes = supplier.balance / 100.0;
+    final balanceText = supplier.balance < 0
+        ? 'We owe: ${currency.format(balanceKes.abs())}'
+        : supplier.balance > 0
+            ? 'They owe: ${currency.format(balanceKes)}'
+            : 'Settled';
 
-    return AlertDialog(
+    return AppDialog(
       title: Text(supplier.name),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Phone: ${supplier.phone}'),
+          if (supplier.email != null) ...[
+            SizedBox(height: spacing.sm),
+            Text('Email: ${supplier.email}'),
+          ],
           SizedBox(height: spacing.sm),
-          Text('Balance: ${currency.format(supplier.balance)}'),
-          SizedBox(height: spacing.sm),
-          Text('Last Delivery: ${supplier.lastDelivery}'),
+          Text('Balance: $balanceText'),
+          if (supplier.lastOrderDate != null) ...[
+            SizedBox(height: spacing.sm),
+            Text('Last Order: ${supplier.lastOrderDate}'),
+          ],
         ],
       ),
       actions: [
@@ -236,26 +212,11 @@ class _SupplierDetailDialog extends StatelessWidget {
             label: 'New Order',
             onPressed: () {
               Navigator.of(context).pop();
+              // ponytail: New order dialog (SLICE 8+)
             },
           ),
         ),
       ],
     );
   }
-}
-
-class _Supplier {
-  const _Supplier({
-    required this.id,
-    required this.name,
-    required this.phone,
-    required this.balance,
-    required this.lastDelivery,
-  });
-
-  final String id;
-  final String name;
-  final String phone;
-  final double balance;
-  final String lastDelivery;
 }

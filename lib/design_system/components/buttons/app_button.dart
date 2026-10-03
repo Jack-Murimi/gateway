@@ -41,14 +41,22 @@ class AppButton extends StatelessWidget {
     final spacing = context.spacing;
     final colorScheme = Theme.of(context).colorScheme;
     final enabled = onPressed != null && !isLoading;
+    
+    final foregroundColor = switch (variant) {
+      AppButtonVariant.primary => colorScheme.onPrimary,
+      AppButtonVariant.secondary => colorScheme.primary,
+      AppButtonVariant.danger => colorScheme.onError,
+    };
+    
     final child = _ButtonContent(
       label: label,
       icon: icon,
       isLoading: isLoading,
+      foregroundColor: foregroundColor,
     );
 
     final style = ButtonStyle(
-      minimumSize: WidgetStatePropertyAll(Size.fromHeight(spacing.touchTarget)),
+      minimumSize: WidgetStatePropertyAll(Size(0, spacing.touchTarget)),
       padding: WidgetStatePropertyAll(spacing.button),
     );
 
@@ -73,12 +81,15 @@ class AppButton extends StatelessWidget {
       ),
     };
 
-    return Semantics(
-      button: true,
-      label: semanticLabel ?? label,
-      enabled: enabled,
-      child: button,
-    );
+    // Only wrap if custom semanticLabel provided; button widgets have built-in semantics
+    if (semanticLabel != null) {
+      return Semantics(
+        label: semanticLabel,
+        child: button,
+      );
+    }
+    
+    return button;
   }
 }
 
@@ -87,11 +98,13 @@ class _ButtonContent extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.isLoading,
+    required this.foregroundColor,
   });
 
   final String label;
   final IconData? icon;
   final bool isLoading;
+  final Color foregroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -103,8 +116,9 @@ class _ButtonContent extends StatelessWidget {
         children: [
           SizedBox.square(
             dimension: spacing.lg,
-            child: const CircularProgressIndicator(
+            child: CircularProgressIndicator(
               strokeWidth: AppProgressIndicator.strokeWidth,
+              color: foregroundColor,
             ),
           ),
           SizedBox(width: spacing.sm),

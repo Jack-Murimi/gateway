@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../design_system/components/buttons/app_button.dart';
+import '../../../../design_system/components/dialogs/app_dialog.dart';
+import '../../../../design_system/theme/theme_extensions.dart';
+import '../../../../design_system/tokens/sizes.dart';
+import '../../../../design_system/tokens/radii.dart';
 
+import '../../../inventory/domain/product.dart';
 import '../../domain/sales_models.dart';
 
 /// Result from the return cylinder dialog.
@@ -71,10 +76,10 @@ class _ReturnCylinderDialogState extends State<_ReturnCylinderDialog> {
   void initState() {
     super.initState();
     _returnItems = widget.lineItems
-        .where((item) => item.product.cylinderType != null)
+        .where((item) => item.product.kind == ProductKind.refill || item.product.kind == ProductKind.emptyCylinder)
         .map(
           (item) => _ReturnLineItem(
-            cylinderType: item.product.cylinderType!,
+            cylinderType: item.product.sizeKg != null ? '${item.product.sizeKg}kg' : item.product.name,
             soldQuantity: item.quantity,
             returnedQuantity: item.quantity,
             isReturned: false,
@@ -102,15 +107,16 @@ class _ReturnCylinderDialogState extends State<_ReturnCylinderDialog> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final spacing = context.spacing;
 
-    return AlertDialog(
+    return AppDialog(
       title: const Text('Return Cylinders'),
       content: SizedBox(
         width: 500,
         child: _returnItems.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('No cylinders in this sale.'),
+            ? Padding(
+                padding: EdgeInsets.all(spacing.xl),
+                child: const Text('No cylinders in this sale.'),
               )
             : Column(
                 mainAxisSize: MainAxisSize.min,
@@ -121,37 +127,37 @@ class _ReturnCylinderDialogState extends State<_ReturnCylinderDialog> {
                     style: Theme.of(context).textTheme.bodyMedium
                         ?.copyWith(color: colorScheme.onSurfaceVariant),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: spacing.lg),
                   // Header
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: spacing.md,
+                      vertical: spacing.sm,
                     ),
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppRadiiTokens.sm),
                     ),
                     child: Row(
                       children: [
-                        const SizedBox(width: 48),
+                        SizedBox(width: AppSizes.tileIconWidth),
                         const Expanded(child: Text('Cylinder')),
                         SizedBox(
-                          width: 80,
+                          width: AppSizes.tileWide,
                           child: Text('Sold', textAlign: TextAlign.center),
                         ),
                         SizedBox(
-                          width: 80,
+                          width: AppSizes.tileWide,
                           child: Text('Returning', textAlign: TextAlign.center),
                         ),
                         SizedBox(
-                          width: 80,
+                          width: AppSizes.tileWide,
                           child: Text('Returned?', textAlign: TextAlign.center),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: spacing.sm),
                   // Items
                   Flexible(
                     child: ListView.builder(
@@ -176,27 +182,25 @@ class _ReturnCylinderDialogState extends State<_ReturnCylinderDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        Expanded(
-          child: AppButton(
-            label: 'Continue',
-            onPressed: () {
-              final result = ReturnCylinderResult(
-                returns: _returnItems
-                    .map(
-                      (item) => CylinderReturn(
-                        cylinderType: item.cylinderType,
-                        soldQuantity: item.soldQuantity,
-                        returnedQuantity: item.isReturned
-                            ? item.returnedQuantity
-                            : 0,
-                        isReturned: item.isReturned,
-                      ),
-                    )
-                    .toList(),
-              );
-              Navigator.of(context).pop(result);
-            },
-          ),
+        AppButton(
+          label: 'Continue',
+          onPressed: () {
+            final result = ReturnCylinderResult(
+              returns: _returnItems
+                  .map(
+                    (item) => CylinderReturn(
+                      cylinderType: item.cylinderType,
+                      soldQuantity: item.soldQuantity,
+                      returnedQuantity: item.isReturned
+                          ? item.returnedQuantity
+                          : 0,
+                      isReturned: item.isReturned,
+                    ),
+                  )
+                  .toList(),
+            );
+            Navigator.of(context).pop(result);
+          },
         ),
       ],
     );
@@ -217,19 +221,20 @@ class _ReturnLineItemTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final spacing = context.spacing;
     final isGreyedOut = !item.isReturned;
 
     return Opacity(
       opacity: isGreyedOut ? 0.5 : 1.0,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: spacing.md, vertical: spacing.md),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
         ),
         child: Row(
           children: [
             Checkbox(value: item.isReturned, onChanged: onToggle),
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.sm),
             Expanded(
               child: Text(
                 item.cylinderType,
@@ -239,16 +244,16 @@ class _ReturnLineItemTile extends StatelessWidget {
               ),
             ),
             SizedBox(
-              width: 80,
+              width: AppSizes.tileWide,
               child: Text(
                 '${item.soldQuantity}',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.sm),
             SizedBox(
-              width: 80,
+              width: AppSizes.tileWide,
               child: isGreyedOut
                   ? Text(
                       '${item.returnedQuantity}',
@@ -260,7 +265,7 @@ class _ReturnLineItemTile extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.remove, size: 16),
+                          icon: Icon(Icons.remove, size: AppSizes.iconSm),
                           onPressed: () =>
                               onQuantityChanged(item.returnedQuantity - 1),
                           constraints: const BoxConstraints(
@@ -278,7 +283,7 @@ class _ReturnLineItemTile extends StatelessWidget {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.add, size: 16),
+                          icon: Icon(Icons.add, size: AppSizes.iconSm),
                           onPressed: () =>
                               onQuantityChanged(item.returnedQuantity + 1),
                           constraints: const BoxConstraints(
@@ -291,16 +296,16 @@ class _ReturnLineItemTile extends StatelessWidget {
                       ],
                     ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.sm),
             SizedBox(
-              width: 80,
+              width: AppSizes.tileWide,
               child: Center(
                 child: Icon(
                   item.isReturned ? Icons.check_circle : Icons.cancel_outlined,
                   color: item.isReturned
                       ? colorScheme.primary
                       : colorScheme.error,
-                  size: 20,
+                  size: AppSizes.iconLg,
                 ),
               ),
             ),

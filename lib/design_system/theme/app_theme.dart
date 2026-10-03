@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/colors.dart';
+import 'semantic_colors.dart';
 import 'theme_extensions.dart';
 
 /// Gateway Material 3 light and dark themes.
@@ -20,7 +21,13 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      extensions: const [AppSpacing.standard, AppRadii.standard],
+      extensions: [
+        AppSpacing.standard,
+        AppRadii.standard,
+        brightness == Brightness.light
+            ? AppSemanticColors.light
+            : AppSemanticColors.dark,
+      ],
       appBarTheme: AppBarTheme(
         centerTitle: false,
         backgroundColor: colorScheme.surface,

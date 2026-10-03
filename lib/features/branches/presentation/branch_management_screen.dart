@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../design_system/components/layout/section_header.dart';
 import '../../../design_system/components/navigation/app_scaffold.dart';
+import '../../../design_system/components/dialogs/app_dialog.dart';
 import '../../../design_system/theme/theme_extensions.dart';
 
 /// Branch model for management.
@@ -48,11 +49,11 @@ class BranchManagementScreen extends StatefulWidget {
 }
 
 class _BranchManagementScreenState extends State<BranchManagementScreen> {
-  final List<Branch> _branches = const [
-    Branch(id: 'jamhuri', name: 'Jamhuri', address: 'Jamhuri Road, Nairobi', phone: '0711000001', isActive: true),
-    Branch(id: 'lavington', name: 'Lavington', address: 'Lavington Mall, Nairobi', phone: '0711000002', isActive: true),
-    Branch(id: 'kileleshwa', name: 'Kileleshwa', address: 'Kileleshwa Drive, Nairobi', phone: '0711000003', isActive: true),
-    Branch(id: 'nextgen', name: 'Nextgen', address: 'Nextgen Plaza, Nairobi', phone: '0711000004', isActive: true),
+  final List<Branch> _branches = [
+    const Branch(id: 'jamhuri', name: 'Jamhuri', address: 'Jamhuri Road, Nairobi', phone: '0711000001', isActive: true),
+    const Branch(id: 'lavington', name: 'Lavington', address: 'Lavington Mall, Nairobi', phone: '0711000002', isActive: true),
+    const Branch(id: 'kileleshwa', name: 'Kileleshwa', address: 'Kileleshwa Drive, Nairobi', phone: '0711000003', isActive: true),
+    const Branch(id: 'nextgen', name: 'Nextgen', address: 'Nextgen Plaza, Nairobi', phone: '0711000004', isActive: true),
   ];
 
   void _addBranch() {
@@ -72,29 +73,19 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
     });
   }
 
-  void _deleteBranch(Branch branch) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Branch'),
-        content: Text('Are you sure you want to delete ""??'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              setState(() {
-                _branches.removeWhere((b) => b.id == branch.id);
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+  void _deleteBranch(Branch branch) async {
+    final confirm = await confirmDialog(
+      context,
+      title: 'Delete Branch',
+      message: 'Are you sure you want to delete "${branch.name}"?',
+      confirmText: 'Delete',
     );
+    
+    if (confirm == true && mounted) {
+      setState(() {
+        _branches.removeWhere((b) => b.id == branch.id);
+      });
+    }
   }
 
   void _toggleBranchStatus(Branch branch) {
@@ -196,7 +187,7 @@ class _BranchTile extends StatelessWidget {
           color: branch.isActive ? null : colorScheme.onSurfaceVariant,
         ),
       ),
-      subtitle: Text(' • '),
+      subtitle: Text('${branch.address} • ${branch.phone}'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -223,39 +214,104 @@ void _showBranchDialog(
   Branch? branch,
   required void Function(Branch) onSave,
 }) {
-  final isEditing = branch != null;
-  final nameController = TextEditingController(text: branch?.name ?? '');
-  final addressController = TextEditingController(text: branch?.address ?? '');
-  final phoneController = TextEditingController(text: branch?.phone ?? '');
-
   showDialog(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (context) => _BranchDialog(branch: branch, onSave: onSave),
+  );
+}
+
+class _BranchDialog extends StatefulWidget {
+  const _BranchDialog({required this.branch, required this.onSave});
+
+  final Branch? branch;
+  final void Function(Branch) onSave;
+
+  @override
+  State<_BranchDialog> createState() => _BranchDialogState();
+}
+
+class _BranchDialogState extends State<_BranchDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _addressController;
+  late final TextEditingController _phoneController;
+  String? _nameError;
+  String? _phoneError;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.branch?.name ?? '');
+    _addressController = TextEditingController(text: widget.branch?.address ?? '');
+    _phoneController = TextEditingController(text: widget.branch?.phone ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _addressController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  bool _validate() {
+    setState(() {
+      _nameError = _nameController.text.trim().isEmpty ? 'Branch name is required' : null;
+      _phoneError = _phoneController.text.trim().isEmpty
+          ? 'Phone is required'
+          : !RegExp(r'^[0-9+\-\s()]+$').hasMatch(_phoneController.text.trim())
+              ? 'Invalid phone format'
+              : null;
+    });
+    return _nameError == null && _phoneError == null;
+  }
+
+  void _save() {
+    if (!_validate()) return;
+
+    final newBranch = Branch(
+      id: widget.branch?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      name: _nameController.text.trim(),
+      address: _addressController.text.trim(),
+      phone: _phoneController.text.trim(),
+      isActive: widget.branch?.isActive ?? true,
+    );
+    widget.onSave(newBranch);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.spacing;
+    final isEditing = widget.branch != null;
+
+    return AppDialog(
       title: Text(isEditing ? 'Edit Branch' : 'Add Branch'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
-            controller: nameController,
-            decoration: const InputDecoration(
+            controller: _nameController,
+            decoration: InputDecoration(
               labelText: 'Branch Name',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
+              errorText: _nameError,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: spacing.lg),
           TextField(
-            controller: addressController,
+            controller: _addressController,
             decoration: const InputDecoration(
               labelText: 'Address',
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: spacing.lg),
           TextField(
-            controller: phoneController,
-            decoration: const InputDecoration(
+            controller: _phoneController,
+            decoration: InputDecoration(
               labelText: 'Phone',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
+              errorText: _phoneError,
             ),
             keyboardType: TextInputType.phone,
           ),
@@ -267,20 +323,10 @@ void _showBranchDialog(
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () {
-            final newBranch = Branch(
-              id: branch?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-              name: nameController.text,
-              address: addressController.text,
-              phone: phoneController.text,
-              isActive: branch?.isActive ?? true,
-            );
-            onSave(newBranch);
-            Navigator.pop(context);
-          },
+          onPressed: _save,
           child: const Text('Save'),
         ),
       ],
-    ),
-  );
+    );
+  }
 }

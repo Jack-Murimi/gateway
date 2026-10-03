@@ -1,8 +1,0 @@
-*** Begin Patch
-*** Update File: lib/features/sales/presentation/sales_screen.dart
-@@ var _selectedBranchId = 'main';
-  var _receiptNumber = 'REC-2024-001';
-  var _selectedCustomer = Customer.walkIn;
-+ var _selectedDate = DateTime.now();
-  var _selectedLocation = Location.defaultLocation;
-*** End Patch

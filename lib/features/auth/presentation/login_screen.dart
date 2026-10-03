@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../design_system/components/buttons/app_button.dart';
 import '../../../design_system/components/inputs/app_text_field.dart';
 import '../../../design_system/theme/theme_extensions.dart';
+import '../../branches/application/branch_providers.dart';
+import '../../branches/presentation/widgets/branch_selection_dialog.dart';
 import '../../sales/presentation/sales_screen.dart';
 
 /// Login screen with email/password authentication.
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   /// Creates the login screen.
   const LoginScreen({super.key});
 
@@ -15,30 +18,73 @@ class LoginScreen extends StatefulWidget {
   static const String routePath = '/login';
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
   var _isLoading = false;
+  String? _emailError;
+  String? _passwordError;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _emailFocus.requestFocus();
+    });
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
-  void _handleLogin() {
+  bool get _canSubmit =>
+      _emailController.text.isNotEmpty &&
+      _passwordController.text.isNotEmpty &&
+      !_isLoading;
+
+  Future<void> _handleLogin() async {
+    // Validate
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    setState(() {
+      _emailError = email.isEmpty ? 'Email is required' : null;
+      _passwordError = password.isEmpty ? 'Password is required' : null;
+    });
+
+    if (_emailError != null || _passwordError != null) return;
+
     setState(() => _isLoading = true);
     // ponytail: mock auth delay, replace with real auth service when backend ready
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        context.go(SalesScreen.routePath);
-      }
-    });
+    await Future.delayed(const Duration(seconds: 1));
+    
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    final branches = ref.read(userBranchesProvider);
+    if (branches.length == 1) {
+      // Auto-select single branch
+      ref.read(currentBranchProvider.notifier).select(branches.first);
+      if (mounted) context.go(SalesScreen.routePath);
+    } else {
+      // Show selection dialog
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const BranchSelectionDialog(),
+      );
+      if (mounted) context.go(SalesScreen.routePath);
+    }
   }
 
   @override
@@ -79,24 +125,42 @@ class _LoginScreenState extends State<LoginScreen> {
                   AppTextField(
                     label: 'Email',
                     controller: _emailController,
+                    focusNode: _emailFocus,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                     prefixIcon: Icons.email_outlined,
                     enabled: !_isLoading,
+                    errorText: _emailError,
+                    onChanged: (_) {
+                      if (_emailError != null) {
+                        setState(() => _emailError = null);
+                      }
+                    },
+                    onSubmitted: (_) => _passwordFocus.requestFocus(),
                   ),
                   SizedBox(height: spacing.md),
                   AppTextField(
                     label: 'Password',
                     controller: _passwordController,
+                    focusNode: _passwordFocus,
                     obscureText: true,
                     textInputAction: TextInputAction.done,
                     prefixIcon: Icons.lock_outlined,
                     enabled: !_isLoading,
+                    errorText: _passwordError,
+                    onChanged: (_) {
+                      if (_passwordError != null) {
+                        setState(() => _passwordError = null);
+                      }
+                    },
+                    onSubmitted: (_) {
+                      if (_canSubmit) _handleLogin();
+                    },
                   ),
                   SizedBox(height: spacing.lg),
                   AppButton(
                     label: 'Sign In',
-                    onPressed: _isLoading ? null : _handleLogin,
+                    onPressed: _canSubmit ? _handleLogin : null,
                     isLoading: _isLoading,
                   ),
                 ],

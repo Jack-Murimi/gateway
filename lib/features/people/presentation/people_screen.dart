@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../design_system/components/buttons/app_button.dart';
+import '../../../design_system/components/dialogs/app_dialog.dart';
 import '../../../design_system/components/feedback/feedback_views.dart';
 import '../../../design_system/components/inputs/app_text_field.dart';
 import '../../../design_system/components/layout/section_header.dart';
 import '../../../design_system/components/navigation/app_scaffold.dart';
 import '../../../design_system/components/status/status_badge.dart';
 import '../../../design_system/theme/theme_extensions.dart';
+import '../domain/staff.dart';
+import '../application/staff_providers.dart';
 
 /// People (Staff) screen with role management.
-class PeopleScreen extends StatefulWidget {
+class PeopleScreen extends ConsumerStatefulWidget {
   /// Creates the people screen.
   const PeopleScreen({super.key});
 
@@ -18,49 +22,12 @@ class PeopleScreen extends StatefulWidget {
   static const String routePath = '/people';
 
   @override
-  State<PeopleScreen> createState() => _PeopleScreenState();
+  ConsumerState<PeopleScreen> createState() => _PeopleScreenState();
 }
 
-class _PeopleScreenState extends State<PeopleScreen> {
+class _PeopleScreenState extends ConsumerState<PeopleScreen> {
   final _searchController = TextEditingController();
-
-  static const _staff = [
-    _StaffMember(
-      id: '1',
-      name: 'Alice Mwangi',
-      role: _Role.admin,
-      email: 'alice@gateway.co.ke',
-      branch: 'All Branches',
-    ),
-    _StaffMember(
-      id: '2',
-      name: 'Bob Omondi',
-      role: _Role.manager,
-      email: 'bob@gateway.co.ke',
-      branch: 'Main Branch',
-    ),
-    _StaffMember(
-      id: '3',
-      name: 'Carol Njeri',
-      role: _Role.cashier,
-      email: 'carol@gateway.co.ke',
-      branch: 'Main Branch',
-    ),
-    _StaffMember(
-      id: '4',
-      name: 'David Kipchoge',
-      role: _Role.cashier,
-      email: 'david@gateway.co.ke',
-      branch: 'Westlands',
-    ),
-    _StaffMember(
-      id: '5',
-      name: 'Emily Wambui',
-      role: _Role.manager,
-      email: 'emily@gateway.co.ke',
-      branch: 'Westlands',
-    ),
-  ];
+  var _searchQuery = '';
 
   @override
   void dispose() {
@@ -70,6 +37,8 @@ class _PeopleScreenState extends State<PeopleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final staffAsync = ref.watch(staffListProvider);
+
     return AppScaffold(
       title: 'Staff',
       selectedIndex: 1,
@@ -96,7 +65,28 @@ class _PeopleScreenState extends State<PeopleScreen> {
           selectedIcon: Icons.settings,
         ),
       ],
-      body: _PeopleContent(searchController: _searchController, staff: _staff),
+      body: staffAsync.when(
+        data: (staff) {
+          final filtered = _searchQuery.isEmpty
+              ? staff
+              : staff.where((s) {
+                  final query = _searchQuery.toLowerCase();
+                  return s.name.toLowerCase().contains(query) ||
+                         s.id.toLowerCase().contains(query);
+                }).toList();
+
+          return _PeopleContent(
+            searchController: _searchController,
+            staff: filtered,
+            onSearchChanged: (q) => setState(() => _searchQuery = q),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => ErrorView(
+          title: 'Failed to load staff',
+          message: e.toString(),
+        ),
+      ),
     );
   }
 
@@ -116,10 +106,15 @@ class _PeopleScreenState extends State<PeopleScreen> {
 }
 
 class _PeopleContent extends StatelessWidget {
-  const _PeopleContent({required this.searchController, required this.staff});
+  const _PeopleContent({
+    required this.searchController,
+    required this.staff,
+    required this.onSearchChanged,
+  });
 
   final TextEditingController searchController;
-  final List<_StaffMember> staff;
+  final List<Staff> staff;
+  final ValueChanged<String> onSearchChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -138,7 +133,8 @@ class _PeopleContent extends StatelessWidget {
           AppSearchField(
             label: 'Search staff',
             controller: searchController,
-            hintText: 'Name or email',
+            hintText: 'Name or ID',
+            onChanged: onSearchChanged,
           ),
           SizedBox(height: spacing.lg),
           if (staff.isEmpty)
@@ -156,7 +152,7 @@ class _PeopleContent extends StatelessWidget {
                       child: Text(member.name.substring(0, 1)),
                     ),
                     title: Text(member.name),
-                    subtitle: Text(member.email),
+                    subtitle: Text('Branch: ${member.branchId}${member.phone != null ? ' • ${member.phone}' : ''}'),
                     trailing: _RoleBadge(role: member.role),
                     onTap: () => _showStaffDetails(context, member),
                   ),
@@ -168,7 +164,7 @@ class _PeopleContent extends StatelessWidget {
     );
   }
 
-  void _showStaffDetails(BuildContext context, _StaffMember member) {
+  void _showStaffDetails(BuildContext context, Staff member) {
     showDialog(
       context: context,
       builder: (context) => _StaffDetailDialog(member: member),
@@ -179,14 +175,15 @@ class _PeopleContent extends StatelessWidget {
 class _RoleBadge extends StatelessWidget {
   const _RoleBadge({required this.role});
 
-  final _Role role;
+  final UserRole role;
 
   @override
   Widget build(BuildContext context) {
     final (label, status) = switch (role) {
-      _Role.admin => ('Admin', AppStatus.info),
-      _Role.manager => ('Manager', AppStatus.success),
-      _Role.cashier => ('Cashier', AppStatus.neutral),
+      UserRole.admin => ('Admin', AppStatus.info),
+      UserRole.director => ('Director', AppStatus.success),
+      UserRole.salesperson => ('Salesperson', AppStatus.neutral),
+      UserRole.rider => ('Rider', AppStatus.neutral),
     };
 
     return StatusBadge(label: label, status: status);
@@ -196,23 +193,29 @@ class _RoleBadge extends StatelessWidget {
 class _StaffDetailDialog extends StatelessWidget {
   const _StaffDetailDialog({required this.member});
 
-  final _StaffMember member;
+  final Staff member;
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
 
-    return AlertDialog(
+    return AppDialog(
       title: Text(member.name),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Email: ${member.email}'),
+          Text('ID: ${member.id}'),
           SizedBox(height: spacing.sm),
           Text('Role: ${member.role.name.toUpperCase()}'),
           SizedBox(height: spacing.sm),
-          Text('Branch: ${member.branch}'),
+          Text('Branch: ${member.branchId}'),
+          if (member.phone != null) ...[
+            SizedBox(height: spacing.sm),
+            Text('Phone: ${member.phone}'),
+          ],
+          SizedBox(height: spacing.sm),
+          Text('Status: ${member.isActive ? 'Active' : 'Inactive'}'),
         ],
       ),
       actions: [
@@ -224,6 +227,7 @@ class _StaffDetailDialog extends StatelessWidget {
           child: AppButton(
             label: 'Edit Permissions',
             onPressed: () {
+              // ponytail: implement staff edit dialog with role picker
               Navigator.of(context).pop();
             },
           ),
@@ -231,22 +235,4 @@ class _StaffDetailDialog extends StatelessWidget {
       ],
     );
   }
-}
-
-enum _Role { admin, manager, cashier }
-
-class _StaffMember {
-  const _StaffMember({
-    required this.id,
-    required this.name,
-    required this.role,
-    required this.email,
-    required this.branch,
-  });
-
-  final String id;
-  final String name;
-  final _Role role;
-  final String email;
-  final String branch;
 }

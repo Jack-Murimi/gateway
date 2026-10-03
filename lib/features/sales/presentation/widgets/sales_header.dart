@@ -4,8 +4,10 @@ import 'package:intl/intl.dart';
 
 import '../../../../design_system/tokens/breakpoints.dart';
 import '../../../../design_system/theme/theme_extensions.dart';
+import '../../../../design_system/tokens/radii.dart';
+import '../../../../design_system/tokens/sizes.dart';
 
-import '../../domain/sales_models.dart';
+import '../../../customers/domain/customer.dart';
 
 /// Header section for Sales screen with date, receipt, and customer.
 /// Branch is NOT shown here — it's already in the app bar via BranchSelector.
@@ -29,9 +31,9 @@ class SalesHeader extends StatelessWidget {
   final String receiptNumber;
   final ValueChanged<String>? onReceiptNumberChanged;
   final Customer selectedCustomer;
-  final Location selectedLocation;
+  final CustomerLocation selectedLocation;
   final ValueChanged<Customer> onCustomerChanged;
-  final ValueChanged<Location> onLocationChanged;
+  final ValueChanged<CustomerLocation> onLocationChanged;
   final List<Customer> customers;
 
   @override
@@ -88,9 +90,9 @@ class _OneRowHeader extends StatelessWidget {
   final String receiptNumber;
   final ValueChanged<String>? onReceiptNumberChanged;
   final Customer selectedCustomer;
-  final Location selectedLocation;
+  final CustomerLocation selectedLocation;
   final ValueChanged<Customer> onCustomerChanged;
-  final ValueChanged<Location> onLocationChanged;
+  final ValueChanged<CustomerLocation> onLocationChanged;
   final List<Customer> customers;
 
   @override
@@ -152,9 +154,9 @@ class _TwoRowHeader extends StatelessWidget {
   final String receiptNumber;
   final ValueChanged<String>? onReceiptNumberChanged;
   final Customer selectedCustomer;
-  final Location selectedLocation;
+  final CustomerLocation selectedLocation;
   final ValueChanged<Customer> onCustomerChanged;
-  final ValueChanged<Location> onLocationChanged;
+  final ValueChanged<CustomerLocation> onLocationChanged;
   final List<Customer> customers;
 
   @override
@@ -209,24 +211,10 @@ class _DateField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final dateFormatter = DateFormat.yMd();
 
-    // Using a read-only TextFormField so we get consistent bordered styling.
-    // A new controller is built from the current date value each build;
-    // that's fine since the field is read-only.
-    return TextFormField(
-      readOnly: true,
-      controller: TextEditingController(text: dateFormatter.format(date)),
-      decoration: InputDecoration(
-        isDense: true,
-        labelText: 'Date',
-        border: const OutlineInputBorder(),
-        prefixIcon: Icon(
-          Icons.calendar_today,
-          size: 18,
-          color: colorScheme.primary, // accent color
-        ),
-      ),
+    return InkWell(
       onTap: onDateChanged == null
           ? null
           : () async {
@@ -238,6 +226,22 @@ class _DateField extends StatelessWidget {
               );
               if (picked != null) onDateChanged!(picked);
             },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          isDense: true,
+          labelText: 'Date',
+          border: const OutlineInputBorder(),
+          prefixIcon: Icon(
+            Icons.calendar_today,
+            size: AppSizes.iconMd,
+            color: colorScheme.primary,
+          ),
+        ),
+        child: Text(
+          dateFormatter.format(date),
+          style: textTheme.bodyLarge,
+        ),
+      ),
     );
   }
 }
@@ -245,25 +249,52 @@ class _DateField extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Receipt / invoice number field — always empty on new sale.
 // ---------------------------------------------------------------------------
-class _ReceiptField extends StatelessWidget {
+class _ReceiptField extends StatefulWidget {
   const _ReceiptField({required this.receiptNumber, this.onChanged});
 
   final String receiptNumber;
   final ValueChanged<String>? onChanged;
 
   @override
+  State<_ReceiptField> createState() => _ReceiptFieldState();
+}
+
+class _ReceiptFieldState extends State<_ReceiptField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.receiptNumber);
+  }
+
+  @override
+  void didUpdateWidget(_ReceiptField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sync controller when parent changes value (e.g., cleared after sale).
+    if (widget.receiptNumber != oldWidget.receiptNumber &&
+        widget.receiptNumber != _controller.text) {
+      _controller.text = widget.receiptNumber;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return TextFormField(
-      // key on the value so Flutter rebuilds + re-initialises when cleared.
-      key: ValueKey(receiptNumber.isEmpty ? '__empty__' : receiptNumber),
-      initialValue: receiptNumber.isEmpty ? null : receiptNumber,
+      controller: _controller,
       decoration: const InputDecoration(
         isDense: true,
         labelText: 'Receipt / Invoice #',
         hintText: 'Enter receipt or invoice number',
         border: OutlineInputBorder(),
       ),
-      onChanged: onChanged,
+      onChanged: widget.onChanged,
     );
   }
 }
@@ -281,9 +312,9 @@ class _CustomerField extends StatefulWidget {
   });
 
   final Customer selectedCustomer;
-  final Location selectedLocation;
+  final CustomerLocation selectedLocation;
   final ValueChanged<Customer> onCustomerChanged;
-  final ValueChanged<Location> onLocationChanged;
+  final ValueChanged<CustomerLocation> onLocationChanged;
   final List<Customer> customers;
 
   @override
@@ -303,6 +334,13 @@ class _CustomerFieldState extends State<_CustomerField> {
     _filteredCustomers = widget.customers;
     if (!widget.selectedCustomer.isWalkIn) {
       _controller.text = widget.selectedCustomer.name;
+    }
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    if (!_focusNode.hasFocus) {
+      setState(() => _showSuggestions = false);
     }
   }
 
@@ -350,35 +388,35 @@ class _CustomerFieldState extends State<_CustomerField> {
   }
 
   void _handleKey(KeyEvent event) {
-    if (event is KeyDownEvent) {
+    if (event is KeyDownEvent && _filteredCustomers.isNotEmpty) {
+      // Max visible items is 3, so max index is min(length, 3) - 1
+      final maxIndex = (_filteredCustomers.length < 3 ? _filteredCustomers.length : 3) - 1;
+      
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
         setState(() {
-          _selectedIndex = (_selectedIndex + 1).clamp(
-            0,
-            _filteredCustomers.length - 1,
-          );
+          _selectedIndex = (_selectedIndex + 1).clamp(0, maxIndex);
         });
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
         setState(() {
-          _selectedIndex = (_selectedIndex - 1).clamp(
-            0,
-            _filteredCustomers.length - 1,
-          );
+          _selectedIndex = (_selectedIndex - 1).clamp(0, maxIndex);
         });
       } else if (event.logicalKey == LogicalKeyboardKey.enter) {
-        if (_filteredCustomers.isNotEmpty &&
-            _selectedIndex < _filteredCustomers.length) {
+        if (_selectedIndex < _filteredCustomers.length) {
           _selectCustomer(_filteredCustomers[_selectedIndex]);
         }
       } else if (event.logicalKey == LogicalKeyboardKey.escape) {
         setState(() => _showSuggestions = false);
       }
+    } else if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+      // Allow Escape even when no results
+      setState(() => _showSuggestions = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final spacing = context.spacing;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,10 +462,10 @@ class _CustomerFieldState extends State<_CustomerField> {
           ),
         ),
         if (_showSuggestions && _filteredCustomers.isNotEmpty) ...[
-          const SizedBox(height: 4),
+          SizedBox(height: spacing.xs),
           Material(
             elevation: 4,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppRadiiTokens.sm),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 200),
               child: ListView.builder(
@@ -463,13 +501,13 @@ class _CustomerFieldState extends State<_CustomerField> {
         ],
         if (!widget.selectedCustomer.isWalkIn &&
             widget.selectedCustomer.locations.length > 1) ...[
-          const SizedBox(height: 8),
+          SizedBox(height: spacing.sm),
           Row(
             children: [
-              Text('Location:', style: Theme.of(context).textTheme.labelSmall),
-              const SizedBox(width: 8),
+              Text('CustomerLocation:', style: Theme.of(context).textTheme.labelSmall),
+              SizedBox(width: spacing.sm),
               Expanded(
-                child: DropdownButton<Location>(
+                child: DropdownButton<CustomerLocation>(
                   value: widget.selectedLocation,
                   isDense: true,
                   isExpanded: true,

@@ -45,8 +45,8 @@ class AppScaffold extends StatelessWidget {
   /// Navigation destinations.
   final List<AppNavDestination> destinations;
 
-  /// Current navigation index.
-  final int selectedIndex;
+  /// Current navigation index (null for no selection).
+  final int? selectedIndex;
 
   /// Destination selection callback.
   final ValueChanged<int> onDestinationSelected;
@@ -74,8 +74,8 @@ class AppScaffold extends StatelessWidget {
         ),
         drawer: _AppDrawer(),
         body: SafeArea(child: body),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: selectedIndex,
+        bottomNavigationBar: selectedIndex != null ? NavigationBar(
+          selectedIndex: selectedIndex!,
           onDestinationSelected: onDestinationSelected,
           destinations: [
             for (final item in destinations)
@@ -85,7 +85,7 @@ class AppScaffold extends StatelessWidget {
                 label: item.label,
               ),
           ],
-        ),
+        ) : null,
       );
     }
 
@@ -123,7 +123,7 @@ class AppScaffold extends StatelessWidget {
         child: Row(
           children: [
             NavigationRail(
-              selectedIndex: selectedIndex,
+              selectedIndex: selectedIndex ?? 0,
               onDestinationSelected: onDestinationSelected,
               labelType: NavigationRailLabelType.all,
               destinations: [
@@ -235,7 +235,7 @@ class _NavigationSidebar extends StatelessWidget {
 
   final String title;
   final List<AppNavDestination> destinations;
-  final int selectedIndex;
+  final int? selectedIndex;
   final ValueChanged<int> onDestinationSelected;
 
   @override

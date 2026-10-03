@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../design_system/components/buttons/app_button.dart';
+import '../../../design_system/components/dialogs/app_dialog.dart';
+import '../../../design_system/components/feedback/feedback_views.dart';
 import '../../../design_system/components/inputs/app_text_field.dart';
 import '../../../design_system/components/layout/section_header.dart';
-import '../../../design_system/components/navigation/app_scaffold.dart';
-import '../../../design_system/components/navigation/branch_selector.dart';
 import '../../../design_system/components/status/status_badge.dart';
 import '../../../design_system/components/tables/app_data_table.dart';
 import '../../../design_system/theme/theme_extensions.dart';
+import '../../../design_system/tokens/sizes.dart';
+import '../../branches/application/branch_providers.dart';
+import '../application/inventory_providers.dart';
 
 /// Inventory screen with stock management.
-class InventoryScreen extends StatefulWidget {
+class InventoryScreen extends ConsumerStatefulWidget {
   /// Creates the inventory screen.
   const InventoryScreen({super.key});
 
@@ -20,84 +23,11 @@ class InventoryScreen extends StatefulWidget {
   static const String routePath = '/inventory';
 
   @override
-  State<InventoryScreen> createState() => _InventoryScreenState();
+  ConsumerState<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryScreenState extends State<InventoryScreen> {
+class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   final _searchController = TextEditingController();
-  var _selectedBranchId = 'main';
-
-  static const _branches = [
-    BranchOption(id: 'main', name: 'Main Branch'),
-    BranchOption(id: 'west', name: 'Westlands'),
-  ];
-
-  static const _inventory = [
-    _InventoryItem(
-      id: '1',
-      name: '13kg LPG Cylinder Refill',
-      sku: 'LPG-13-R',
-      stock: 45,
-      minStock: 10,
-      price: 3300,
-    ),
-    _InventoryItem(
-      id: '2',
-      name: '6kg LPG Cylinder Refill',
-      sku: 'LPG-6-R',
-      stock: 32,
-      minStock: 15,
-      price: 1800,
-    ),
-    _InventoryItem(
-      id: '3',
-      name: 'Burner Regulator Kit',
-      sku: 'REG-BRK',
-      stock: 8,
-      minStock: 5,
-      price: 1250,
-    ),
-    _InventoryItem(
-      id: '4',
-      name: 'Gas Hose 1.5m',
-      sku: 'HOS-15',
-      stock: 67,
-      minStock: 20,
-      price: 450,
-    ),
-    _InventoryItem(
-      id: '5',
-      name: '13kg Empty Cylinder',
-      sku: 'CYL-13-E',
-      stock: 12,
-      minStock: 8,
-      price: 5500,
-    ),
-    _InventoryItem(
-      id: '6',
-      name: '6kg Empty Cylinder',
-      sku: 'CYL-6-E',
-      stock: 0,
-      minStock: 10,
-      price: 3200,
-    ),
-    _InventoryItem(
-      id: '7',
-      name: 'Double Burner Stove',
-      sku: 'STV-DB',
-      stock: 15,
-      minStock: 5,
-      price: 4800,
-    ),
-    _InventoryItem(
-      id: '8',
-      name: 'Single Burner Stove',
-      sku: 'STV-SB',
-      stock: 23,
-      minStock: 5,
-      price: 2400,
-    ),
-  ];
 
   @override
   void dispose() {
@@ -107,65 +37,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final spacing = context.spacing;
     final currency = NumberFormat.simpleCurrency(name: 'KES');
+    final inventoryAsync = ref.watch(branchInventoryProvider(ref.watch(currentBranchProvider).id));
 
-    return AppScaffold(
-      title: 'Inventory',
-      selectedIndex: 1,
-      onDestinationSelected: (index) => _handleNavigation(context, index),
-      destinations: const [
-        AppNavDestination(
-          label: 'Sales',
-          icon: Icons.point_of_sale_outlined,
-          selectedIcon: Icons.point_of_sale,
-        ),
-        AppNavDestination(
-          label: 'Inventory',
-          icon: Icons.inventory_2_outlined,
-          selectedIcon: Icons.inventory_2,
-        ),
-        AppNavDestination(
-          label: 'Reports',
-          icon: Icons.query_stats_outlined,
-          selectedIcon: Icons.query_stats,
-        ),
-        AppNavDestination(
-          label: 'Settings',
-          icon: Icons.settings_outlined,
-          selectedIcon: Icons.settings,
-        ),
-      ],
-      actions: [
-        Padding(
-          padding: spacing.compact,
-          child: BranchSelector(
-            branches: _branches,
-            selectedBranchId: _selectedBranchId,
-            onChanged: (id) => setState(() => _selectedBranchId = id ?? 'main'),
-          ),
-        ),
-      ],
-      body: _InventoryContent(
+    return inventoryAsync.when(
+      data: (inventory) => _InventoryContent(
         searchController: _searchController,
-        inventory: _inventory,
+        inventory: inventory,
         currency: currency,
       ),
+      loading: () => const LoadingView(),
+      error: (err, stack) => ErrorView(title: 'Error loading inventory', message: err.toString()),
     );
-  }
-
-  void _handleNavigation(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        context.go('/sales');
-        break;
-      case 2:
-        context.go('/reports');
-        break;
-      case 3:
-        context.go('/settings');
-        break;
-    }
   }
 }
 
@@ -177,16 +60,14 @@ class _InventoryContent extends StatelessWidget {
   });
 
   final TextEditingController searchController;
-  final List<_InventoryItem> inventory;
+  final List<ProductWithStock> inventory;
   final NumberFormat currency;
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
-    final lowStockCount = inventory
-        .where((item) => item.stock <= item.minStock)
-        .length;
-    final outOfStockCount = inventory.where((item) => item.stock == 0).length;
+    final lowStockCount = inventory.where((item) => item.quantity <= 10).length; // ponytail: hardcoded minStock=10
+    final outOfStockCount = inventory.where((item) => item.quantity == 0).length;
 
     return SingleChildScrollView(
       padding: spacing.page,
@@ -273,7 +154,7 @@ class _StatChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 20, color: colorScheme.onSurfaceVariant),
+          Icon(icon, size: AppSizes.iconLg, color: colorScheme.onSurfaceVariant),
           SizedBox(width: spacing.sm),
           Text('$value $label', style: Theme.of(context).textTheme.labelLarge),
         ],
@@ -285,7 +166,7 @@ class _StatChip extends StatelessWidget {
 class _InventoryList extends StatelessWidget {
   const _InventoryList({required this.inventory, required this.currency});
 
-  final List<_InventoryItem> inventory;
+  final List<ProductWithStock> inventory;
   final NumberFormat currency;
 
   @override
@@ -294,19 +175,19 @@ class _InventoryList extends StatelessWidget {
 
     return Column(
       children: inventory.map((item) {
-        final status = item.stock == 0
+        final status = item.quantity == 0
             ? AppStatus.danger
-            : item.stock <= item.minStock
+            : item.quantity <= 10 // ponytail: hardcoded minStock
             ? AppStatus.warning
             : AppStatus.success;
 
         return Card(
           margin: EdgeInsets.only(bottom: spacing.md),
           child: ListTile(
-            title: Text(item.name),
-            subtitle: Text('SKU: ${item.sku} - ${currency.format(item.price)}'),
+            title: Text(item.product.name),
+            subtitle: Text(currency.format(item.product.price / 100)),
             trailing: StatusBadge(
-              label: item.stock > 0 ? '${item.stock} units' : 'Out of stock',
+              label: item.quantity > 0 ? '${item.quantity} units' : 'Out of stock',
               status: status,
             ),
             onTap: () => _showItemDetails(context, item),
@@ -316,7 +197,7 @@ class _InventoryList extends StatelessWidget {
     );
   }
 
-  void _showItemDetails(BuildContext context, _InventoryItem item) {
+  void _showItemDetails(BuildContext context, ProductWithStock item) {
     showDialog(
       context: context,
       builder: (context) => _ItemDetailDialog(item: item, currency: currency),
@@ -327,7 +208,7 @@ class _InventoryList extends StatelessWidget {
 class _InventoryTable extends StatelessWidget {
   const _InventoryTable({required this.inventory, required this.currency});
 
-  final List<_InventoryItem> inventory;
+  final List<ProductWithStock> inventory;
   final NumberFormat currency;
 
   @override
@@ -335,27 +216,25 @@ class _InventoryTable extends StatelessWidget {
     return AppDataTable(
       columns: const [
         DataColumn(label: Text('Product')),
-        DataColumn(label: Text('SKU')),
         DataColumn(label: Text('Stock')),
         DataColumn(label: Text('Price')),
         DataColumn(label: Text('Status')),
       ],
       rows: inventory.map((item) {
-        final status = item.stock == 0
+        final status = item.quantity == 0
             ? AppStatus.danger
-            : item.stock <= item.minStock
+            : item.quantity <= 10 // ponytail: hardcoded minStock
             ? AppStatus.warning
             : AppStatus.success;
 
         return DataRow(
           cells: [
-            DataCell(Text(item.name)),
-            DataCell(Text(item.sku)),
-            DataCell(Text('${item.stock}')),
-            DataCell(Text(currency.format(item.price))),
+            DataCell(Text(item.product.name)),
+            DataCell(Text('${item.quantity}')),
+            DataCell(Text(currency.format(item.product.price / 100))),
             DataCell(
               StatusBadge(
-                label: item.stock > 0 ? 'In stock' : 'Out of stock',
+                label: item.quantity > 0 ? 'In stock' : 'Out of stock',
                 status: status,
               ),
             ),
@@ -369,26 +248,22 @@ class _InventoryTable extends StatelessWidget {
 class _ItemDetailDialog extends StatelessWidget {
   const _ItemDetailDialog({required this.item, required this.currency});
 
-  final _InventoryItem item;
+  final ProductWithStock item;
   final NumberFormat currency;
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
 
-    return AlertDialog(
-      title: Text(item.name),
+    return AppDialog(
+      title: Text(item.product.name),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('SKU: ${item.sku}'),
+          Text('Price: ${currency.format(item.product.price / 100)}'),
           SizedBox(height: spacing.sm),
-          Text('Price: ${currency.format(item.price)}'),
-          SizedBox(height: spacing.sm),
-          Text('Current Stock: ${item.stock}'),
-          SizedBox(height: spacing.sm),
-          Text('Minimum Stock: ${item.minStock}'),
+          Text('Current Stock: ${item.quantity}'),
         ],
       ),
       actions: [
@@ -410,22 +285,4 @@ class _ItemDetailDialog extends StatelessWidget {
       ],
     );
   }
-}
-
-class _InventoryItem {
-  const _InventoryItem({
-    required this.id,
-    required this.name,
-    required this.sku,
-    required this.stock,
-    required this.minStock,
-    required this.price,
-  });
-
-  final String id;
-  final String name;
-  final String sku;
-  final int stock;
-  final int minStock;
-  final double price;
 }

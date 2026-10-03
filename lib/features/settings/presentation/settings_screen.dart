@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../design_system/components/layout/section_header.dart';
-import '../../../design_system/components/navigation/app_scaffold.dart';
 import '../../../design_system/theme/theme_extensions.dart';
 
 /// Settings screen with app configuration.
@@ -24,56 +23,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
-      title: 'Settings',
-      selectedIndex: 3,
-      onDestinationSelected: (index) => _handleNavigation(context, index),
-      destinations: const [
-        AppNavDestination(
-          label: 'Sales',
-          icon: Icons.point_of_sale_outlined,
-          selectedIcon: Icons.point_of_sale,
-        ),
-        AppNavDestination(
-          label: 'Inventory',
-          icon: Icons.inventory_2_outlined,
-          selectedIcon: Icons.inventory_2,
-        ),
-        AppNavDestination(
-          label: 'Reports',
-          icon: Icons.query_stats_outlined,
-          selectedIcon: Icons.query_stats,
-        ),
-        AppNavDestination(
-          label: 'Settings',
-          icon: Icons.settings_outlined,
-          selectedIcon: Icons.settings,
-        ),
-      ],
-      body: _SettingsContent(
-        notificationsEnabled: _notificationsEnabled,
-        soundEnabled: _soundEnabled,
-        darkMode: _darkMode,
-        onNotificationsChanged: (value) =>
-            setState(() => _notificationsEnabled = value),
-        onSoundChanged: (value) => setState(() => _soundEnabled = value),
-        onDarkModeChanged: (value) => setState(() => _darkMode = value),
-      ),
+    return _SettingsContent(
+      notificationsEnabled: _notificationsEnabled,
+      soundEnabled: _soundEnabled,
+      darkMode: _darkMode,
+      onNotificationsChanged: (value) =>
+          setState(() => _notificationsEnabled = value),
+      onSoundChanged: (value) => setState(() => _soundEnabled = value),
+      onDarkModeChanged: (value) => setState(() => _darkMode = value),
     );
-  }
-
-  void _handleNavigation(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        context.go('/sales');
-        break;
-      case 1:
-        context.go('/inventory');
-        break;
-      case 2:
-        context.go('/reports');
-        break;
-    }
   }
 }
 

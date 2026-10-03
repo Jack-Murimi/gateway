@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../design_system/components/buttons/app_button.dart';
+import '../../../../design_system/components/dialogs/app_dialog.dart';
 import '../../../../design_system/theme/theme_extensions.dart';
+import '../../../../design_system/tokens/sizes.dart';
+import '../../../../design_system/tokens/radii.dart';
+import '../../../../design_system/tokens/typography.dart';
 
-import '../../domain/sales_models.dart';
+import '../../../customers/domain/customer.dart';
 
 /// Payment method types.
 enum PaymentMethod { cash, mpesa, card, bankTransfer, invoice }
@@ -87,6 +91,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   DateTime _dueDate = DateTime.now().add(const Duration(days: 30));
   final _referenceController = TextEditingController();
   final _amountController = TextEditingController();
+  String? _referenceError;
 
   double get _paidAmount =>
       _payments.fold<double>(0, (sum, p) => sum + p.amount);
@@ -110,7 +115,21 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     final amount = double.tryParse(_amountController.text) ?? 0;
     if (amount <= 0) return;
 
+    // Validate M-Pesa reference
+    if (_selectedMethod == PaymentMethod.mpesa) {
+      final ref = _referenceController.text.trim();
+      if (ref.isEmpty) {
+        setState(() => _referenceError = 'M-Pesa code required');
+        return;
+      }
+      if (!_isValidMpesaCode(ref)) {
+        setState(() => _referenceError = 'Invalid format (10 alphanumeric chars)');
+        return;
+      }
+    }
+
     setState(() {
+      _referenceError = null;
       _payments.add(
         PaymentEntry(
           method: _selectedMethod,
@@ -125,6 +144,11 @@ class _PaymentDialogState extends State<_PaymentDialog> {
           ? _remainingBalance.toStringAsFixed(0)
           : '';
     });
+  }
+
+  bool _isValidMpesaCode(String code) {
+    // M-Pesa codes: 10 alphanumeric characters
+    return RegExp(r'^[A-Z0-9]{10}$').hasMatch(code);
   }
 
   void _removePayment(int index) {
@@ -142,7 +166,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return AppDialog(
       title: const Text('Payment'),
       content: SizedBox(
         width: 500,
@@ -168,8 +192,8 @@ class _PaymentDialogState extends State<_PaymentDialog> {
         Container(
           padding: spacing.page,
           decoration: BoxDecoration(
-            color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(8),
+            color: colorScheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(AppRadiiTokens.sm),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -183,8 +207,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                   ),
                   Text(
                     widget.currency.format(widget.grandTotal),
-                    style: Theme.of(context).textTheme.titleLarge
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.money?.copyWith(
+                      fontSize: Theme.of(context).textTheme.titleLarge?.fontSize,
+                    ),
                   ),
                 ],
               ),
@@ -197,8 +222,8 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                   ),
                   Text(
                     widget.currency.format(_remainingBalance),
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+                    style: Theme.of(context).textTheme.money?.copyWith(
+                      fontSize: Theme.of(context).textTheme.titleLarge?.fontSize,
                       color: _remainingBalance > 0
                           ? colorScheme.error
                           : colorScheme.primary,
@@ -212,9 +237,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
 
         // Existing payments
         if (_payments.isNotEmpty) ...[
-          const SizedBox(height: 16),
+          SizedBox(height: spacing.lg),
           Text('Payments', style: Theme.of(context).textTheme.labelMedium),
-          const SizedBox(height: 8),
+          SizedBox(height: spacing.sm),
           ..._payments.asMap().entries.map((entry) {
             final index = entry.key;
             final payment = entry.value;
@@ -226,17 +251,17 @@ class _PaymentDialogState extends State<_PaymentDialog> {
           }),
         ],
 
-        const SizedBox(height: 16),
+        SizedBox(height: spacing.lg),
 
         // Add payment section
         if (_remainingBalance > 0) ...[
           Text('Add Payment', style: Theme.of(context).textTheme.labelMedium),
-          const SizedBox(height: 8),
+          SizedBox(height: spacing.sm),
 
           // Method selector
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: spacing.sm,
+            runSpacing: spacing.sm,
             children: PaymentMethod.values
                 .where((m) => m != PaymentMethod.invoice)
                 .map((method) {
@@ -252,7 +277,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                 .toList(),
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: spacing.md),
 
           // Amount field
           TextFormField(
@@ -267,20 +292,26 @@ class _PaymentDialogState extends State<_PaymentDialog> {
 
           // Reference field (for M-Pesa)
           if (_selectedMethod == PaymentMethod.mpesa) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.md),
             TextFormField(
               controller: _referenceController,
-              decoration: const InputDecoration(
-                labelText: 'M-Pesa Code (last 5 digits)',
-                hintText: 'e.g., QW3RT',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: 'M-Pesa Code',
+                hintText: 'e.g., QHN3XYZ789',
+                border: const OutlineInputBorder(),
+                errorText: _referenceError,
               ),
               textCapitalization: TextCapitalization.characters,
-              maxLength: 5,
+              maxLength: 10,
+              onChanged: (_) {
+                if (_referenceError != null) {
+                  setState(() => _referenceError = null);
+                }
+              },
             ),
           ],
 
-          const SizedBox(height: 12),
+          SizedBox(height: spacing.md),
 
           // Add button
           AppButton(
@@ -305,12 +336,12 @@ class _PaymentDialogState extends State<_PaymentDialog> {
           padding: spacing.page,
           decoration: BoxDecoration(
             color: colorScheme.errorContainer.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppRadiiTokens.sm),
           ),
           child: Row(
             children: [
               Icon(Icons.info_outline, color: colorScheme.error),
-              const SizedBox(width: 12),
+              SizedBox(width: spacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,7 +350,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
                       'Mark as Invoice (Unpaid)',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: spacing.xs),
                     Text(
                       'This sale will be recorded as unpaid and added to customer\'s balance.',
                       style: Theme.of(context).textTheme.bodySmall,
@@ -331,22 +362,22 @@ class _PaymentDialogState extends State<_PaymentDialog> {
           ),
         ),
 
-        const SizedBox(height: 16),
+        SizedBox(height: spacing.lg),
 
         // Customer info
         if (!widget.customer.isWalkIn) ...[
           Text('Customer', style: Theme.of(context).textTheme.labelMedium),
-          const SizedBox(height: 4),
+          SizedBox(height: spacing.xs),
           Text(
             widget.customer.name,
             style: Theme.of(context).textTheme.bodyLarge,
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: spacing.lg),
         ],
 
         // Due date
         Text('Due Date', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: 8),
+        SizedBox(height: spacing.sm),
         InkWell(
           onTap: () async {
             final date = await showDatePicker(
@@ -358,15 +389,15 @@ class _PaymentDialogState extends State<_PaymentDialog> {
             if (date != null) setState(() => _dueDate = date);
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            padding: EdgeInsets.symmetric(horizontal: spacing.md, vertical: spacing.md),
             decoration: BoxDecoration(
               border: Border.all(color: colorScheme.outline),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppRadiiTokens.sm),
             ),
             child: Row(
               children: [
-                const Icon(Icons.calendar_today, size: 18),
-                const SizedBox(width: 12),
+                Icon(Icons.calendar_today, size: AppSizes.iconMd),
+                SizedBox(width: spacing.md),
                 Text(DateFormat.yMd().format(_dueDate)),
                 const Spacer(),
                 const Icon(Icons.chevron_right),
@@ -384,24 +415,22 @@ class _PaymentDialogState extends State<_PaymentDialog> {
         onPressed: () => Navigator.of(context).pop(),
         child: const Text('Cancel'),
       ),
-      if (widget.customer.isWalkIn)
+      if (!widget.customer.isWalkIn)
         TextButton(
           onPressed: _markAsInvoice,
           child: const Text('Mark as Invoice'),
         ),
       if (_remainingBalance <= 0 || _payments.isNotEmpty)
-        Expanded(
-          child: AppButton(
-            label: 'Complete',
-            onPressed: () {
-              final result = PaymentResult(
-                payments: _payments,
-                isInvoice: false,
-                dueDate: null,
-              );
-              Navigator.of(context).pop(result);
-            },
-          ),
+        AppButton(
+          label: 'Complete',
+          onPressed: () {
+            final result = PaymentResult(
+              payments: _payments,
+              isInvoice: false,
+              dueDate: null,
+            );
+            Navigator.of(context).pop(result);
+          },
         ),
     ];
   }
@@ -412,18 +441,16 @@ class _PaymentDialogState extends State<_PaymentDialog> {
         onPressed: () => setState(() => _isInvoice = false),
         child: const Text('Back'),
       ),
-      Expanded(
-        child: AppButton(
-          label: 'Save as Invoice',
-          onPressed: () {
-            final result = PaymentResult(
-              payments: [],
-              isInvoice: true,
-              dueDate: _dueDate,
-            );
-            Navigator.of(context).pop(result);
-          },
-        ),
+      AppButton(
+        label: 'Save as Invoice',
+        onPressed: () {
+          final result = PaymentResult(
+            payments: [],
+            isInvoice: true,
+            dueDate: _dueDate,
+          );
+          Navigator.of(context).pop(result);
+        },
       ),
     ];
   }
@@ -458,18 +485,19 @@ class _PaymentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final spacing = context.spacing;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: EdgeInsets.only(bottom: spacing.sm),
+      padding: EdgeInsets.symmetric(horizontal: spacing.md, vertical: spacing.sm),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadiiTokens.sm),
       ),
       child: Row(
         children: [
-          Icon(_getMethodIcon(payment.method), size: 20),
-          const SizedBox(width: 12),
+          Icon(_getMethodIcon(payment.method), size: AppSizes.iconLg),
+          SizedBox(width: spacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -486,11 +514,10 @@ class _PaymentTile extends StatelessWidget {
           ),
           Text(
             currency.format(payment.amount),
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(fontWeight: FontWeight.w500),
+            style: Theme.of(context).textTheme.money,
           ),
           IconButton(
-            icon: const Icon(Icons.close, size: 18),
+            icon: Icon(Icons.close, size: AppSizes.iconMd),
             onPressed: onRemove,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             padding: EdgeInsets.zero,

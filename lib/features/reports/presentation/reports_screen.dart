@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../design_system/components/cards/stat_card.dart';
-import '../../../design_system/components/inputs/app_text_field.dart';
+import '../../../design_system/components/feedback/feedback_views.dart';
 import '../../../design_system/components/layout/section_header.dart';
-import '../../../design_system/components/navigation/app_scaffold.dart';
-import '../../../design_system/components/navigation/branch_selector.dart';
 import '../../../design_system/theme/theme_extensions.dart';
+import '../application/report_providers.dart';
+import '../domain/date_range_preset.dart';
+import '../domain/report_models.dart';
 
 /// Reports dashboard with KPIs and charts.
-class ReportsScreen extends StatefulWidget {
+class ReportsScreen extends ConsumerWidget {
   /// Creates the reports screen.
   const ReportsScreen({super.key});
 
@@ -18,82 +19,58 @@ class ReportsScreen extends StatefulWidget {
   static const String routePath = '/reports';
 
   @override
-  State<ReportsScreen> createState() => _ReportsScreenState();
-}
-
-class _ReportsScreenState extends State<ReportsScreen> {
-  var _selectedBranchId = 'all';
-
-  static const _branches = [
-    BranchOption(id: 'all', name: 'All Branches'),
-    BranchOption(id: 'main', name: 'Main Branch'),
-    BranchOption(id: 'west', name: 'Westlands'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final spacing = context.spacing;
+  Widget build(BuildContext context, WidgetRef ref) {
     final currency = NumberFormat.simpleCurrency(name: 'KES');
+    final summaryAsync = ref.watch(reportSummaryProvider);
+    final branchComparisonAsync = ref.watch(branchComparisonProvider);
+    final preset = ref.watch(dateRangePresetProvider);
 
-    return AppScaffold(
-      title: 'Reports',
-      selectedIndex: 2,
-      onDestinationSelected: (index) => _handleNavigation(context, index),
-      destinations: const [
-        AppNavDestination(
-          label: 'Sales',
-          icon: Icons.point_of_sale_outlined,
-          selectedIcon: Icons.point_of_sale,
-        ),
-        AppNavDestination(
-          label: 'Inventory',
-          icon: Icons.inventory_2_outlined,
-          selectedIcon: Icons.inventory_2,
-        ),
-        AppNavDestination(
-          label: 'Reports',
-          icon: Icons.query_stats_outlined,
-          selectedIcon: Icons.query_stats,
-        ),
-        AppNavDestination(
-          label: 'Settings',
-          icon: Icons.settings_outlined,
-          selectedIcon: Icons.settings,
-        ),
-      ],
-      actions: [
-        Padding(
-          padding: spacing.compact,
-          child: BranchSelector(
-            branches: _branches,
-            selectedBranchId: _selectedBranchId,
-            onChanged: (id) => setState(() => _selectedBranchId = id ?? 'all'),
+    return summaryAsync.when(
+      data: (summary) {
+        return branchComparisonAsync.when(
+          data: (branchComparison) {
+            return _ReportsContent(
+              currency: currency,
+              summary: summary,
+              branchComparison: branchComparison,
+              selectedPreset: preset,
+              onPresetChanged: (newPreset) {
+                ref.read(dateRangePresetProvider.notifier).select(newPreset);
+              },
+            );
+          },
+          loading: () => const LoadingView(),
+          error: (err, stack) => ErrorView(
+            title: 'Failed to load branch comparison',
+            message: err.toString(),
+            onRetry: () => ref.invalidate(branchComparisonProvider),
           ),
-        ),
-      ],
-      body: _ReportsContent(currency: currency),
+        );
+      },
+      loading: () => const LoadingView(),
+      error: (err, stack) => ErrorView(
+        title: 'Failed to load report',
+        message: err.toString(),
+        onRetry: () => ref.invalidate(reportSummaryProvider),
+      ),
     );
-  }
-
-  void _handleNavigation(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        context.go('/sales');
-        break;
-      case 1:
-        context.go('/inventory');
-        break;
-      case 3:
-        context.go('/settings');
-        break;
-    }
   }
 }
 
 class _ReportsContent extends StatelessWidget {
-  const _ReportsContent({required this.currency});
+  const _ReportsContent({
+    required this.currency,
+    required this.summary,
+    required this.branchComparison,
+    required this.selectedPreset,
+    required this.onPresetChanged,
+  });
 
   final NumberFormat currency;
+  final ReportSummary summary;
+  final List<BranchSummary> branchComparison;
+  final DateRangePresetEnum selectedPreset;
+  final ValueChanged<DateRangePresetEnum> onPresetChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -109,11 +86,24 @@ class _ReportsContent extends StatelessWidget {
             subtitle: 'Business performance overview.',
           ),
           SizedBox(height: spacing.lg),
-          AppTextField(
-            label: 'Filter by date range',
-            controller: TextEditingController(text: 'Last 7 days'),
-            hintText: 'Select range',
-            prefixIcon: Icons.date_range,
+          PopupMenuButton<DateRangePresetEnum>(
+            initialValue: selectedPreset,
+            onSelected: onPresetChanged,
+            itemBuilder: (context) => DateRangePresetEnum.values.map((preset) {
+              return PopupMenuItem(
+                value: preset,
+                child: Text(preset.label),
+              );
+            }).toList(),
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Filter by date range',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.date_range),
+                suffixIcon: Icon(Icons.arrow_drop_down),
+              ),
+              child: Text(selectedPreset.label),
+            ),
           ),
           SizedBox(height: spacing.xl),
           LayoutBuilder(
@@ -123,6 +113,9 @@ class _ReportsContent extends StatelessWidget {
                   ? (constraints.maxWidth - spacing.lg * 3) / 4
                   : constraints.maxWidth;
 
+              final totalKes = summary.totalSalesAmount / 100.0;
+              final avgKes = summary.averageSale / 100.0;
+
               return Wrap(
                 spacing: spacing.lg,
                 runSpacing: spacing.lg,
@@ -131,36 +124,32 @@ class _ReportsContent extends StatelessWidget {
                     width: cardWidth,
                     child: StatCard(
                       label: 'Total Sales',
-                      value: currency.format(245800),
+                      value: currency.format(totalKes),
                       icon: Icons.trending_up,
-                      supportingText: '+12% from last week',
                     ),
                   ),
                   SizedBox(
                     width: cardWidth,
                     child: StatCard(
                       label: 'Transactions',
-                      value: '156',
+                      value: '${summary.transactionCount}',
                       icon: Icons.receipt_long,
-                      supportingText: '23 today',
                     ),
                   ),
                   SizedBox(
                     width: cardWidth,
                     child: StatCard(
                       label: 'Avg. Sale',
-                      value: currency.format(1575),
+                      value: currency.format(avgKes),
                       icon: Icons.analytics,
-                      supportingText: '+8% increase',
                     ),
                   ),
                   SizedBox(
                     width: cardWidth,
-                    child: const StatCard(
+                    child: StatCard(
                       label: 'Customers',
-                      value: '89',
+                      value: '${summary.uniqueCustomerCount}',
                       icon: Icons.people,
-                      supportingText: 'Active this week',
                     ),
                   ),
                 ],
@@ -169,73 +158,52 @@ class _ReportsContent extends StatelessWidget {
           ),
           SizedBox(height: spacing.xl),
           const SectionHeader(
-            title: 'Top Products',
-            subtitle: 'Best selling items this period.',
-          ),
-          SizedBox(height: spacing.lg),
-          _TopProductsList(currency: currency),
-          SizedBox(height: spacing.xl),
-          const SectionHeader(
             title: 'Branch Comparison',
             subtitle: 'Performance across locations.',
           ),
           SizedBox(height: spacing.lg),
-          _BranchComparison(currency: currency),
+          if (branchComparison.isEmpty)
+            const EmptyView(
+              title: 'No data',
+              message: 'No sales in this period.',
+            )
+          else
+            _BranchComparison(
+              currency: currency,
+              branches: branchComparison,
+            ),
         ],
       ),
     );
   }
 }
 
-class _TopProductsList extends StatelessWidget {
-  const _TopProductsList({required this.currency});
-
-  final NumberFormat currency;
-
-  static const _products = [
-    ('13kg LPG Cylinder Refill', 45, 148500),
-    ('6kg LPG Cylinder Refill', 38, 68400),
-    ('Double Burner Stove', 12, 57600),
-    ('Burner Regulator Kit', 23, 28750),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Column(
-        children: _products.asMap().entries.map((entry) {
-          final (name, quantity, total) = entry.value;
-          return ListTile(
-            leading: CircleAvatar(child: Text('#${entry.key + 1}')),
-            title: Text(name),
-            subtitle: Text('$quantity sold'),
-            trailing: Text(
-              currency.format(total),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
 class _BranchComparison extends StatelessWidget {
-  const _BranchComparison({required this.currency});
+  const _BranchComparison({
+    required this.currency,
+    required this.branches,
+  });
 
   final NumberFormat currency;
+  final List<BranchSummary> branches;
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
-    final branches = [
-      ('Main Branch', 156200, 0.64),
-      ('Westlands', 89600, 0.36),
-    ];
+    
+    // Calculate total for percentage
+    final grandTotal = branches.fold<int>(
+      0,
+      (sum, b) => sum + b.totalSalesAmount,
+    );
 
     return Column(
       children: branches.map((branch) {
-        final (name, total, percent) = branch;
+        final totalKes = branch.totalSalesAmount / 100.0;
+        final percent = grandTotal > 0 
+            ? branch.totalSalesAmount / grandTotal 
+            : 0.0;
+
         return Card(
           margin: EdgeInsets.only(bottom: spacing.md),
           child: Padding(
@@ -246,14 +214,22 @@ class _BranchComparison extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(name, style: Theme.of(context).textTheme.titleMedium),
                     Text(
-                      currency.format(total),
+                      branch.branchName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      currency.format(totalKes),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                     ),
                   ],
+                ),
+                SizedBox(height: spacing.xs),
+                Text(
+                  '${branch.transactionCount} transactions',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
                 SizedBox(height: spacing.sm),
                 LinearProgressIndicator(value: percent, minHeight: 8),
@@ -265,3 +241,4 @@ class _BranchComparison extends StatelessWidget {
     );
   }
 }
+
