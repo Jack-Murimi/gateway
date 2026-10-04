@@ -1,42 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../design_system/components/layout/section_header.dart';
-import '../../../design_system/components/navigation/app_scaffold.dart';
 import '../../../design_system/components/dialogs/app_dialog.dart';
 import '../../../design_system/theme/theme_extensions.dart';
-
-/// Branch model for management.
-class Branch {
-  const Branch({
-    required this.id,
-    required this.name,
-    required this.address,
-    required this.phone,
-    required this.isActive,
-  });
-
-  final String id;
-  final String name;
-  final String address;
-  final String phone;
-  final bool isActive;
-
-  Branch copyWith({
-    String? id,
-    String? name,
-    String? address,
-    String? phone,
-    bool? isActive,
-  }) {
-    return Branch(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      address: address ?? this.address,
-      phone: phone ?? this.phone,
-      isActive: isActive ?? this.isActive,
-    );
-  }
-}
+import '../domain/branch.dart';
 
 /// Branch management screen with CRUD operations.
 class BranchManagementScreen extends StatefulWidget {
@@ -101,56 +68,45 @@ class _BranchManagementScreenState extends State<BranchManagementScreen> {
   Widget build(BuildContext context) {
     final spacing = context.spacing;
 
-    return AppScaffold(
-      title: 'Branch Management',
-      selectedIndex: -1,
-      onDestinationSelected: (_) {},
-      destinations: const [
-        AppNavDestination(label: 'Sales', icon: Icons.point_of_sale_outlined),
-        AppNavDestination(label: 'Inventory', icon: Icons.inventory_2_outlined),
-        AppNavDestination(label: 'Reports', icon: Icons.query_stats_outlined),
-        AppNavDestination(label: 'Settings', icon: Icons.settings_outlined),
-      ],
-      body: SingleChildScrollView(
-        padding: spacing.page,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SectionHeader(
-              title: 'Branches',
-              subtitle: 'Manage your branch locations.',
-            ),
-            SizedBox(height: spacing.md),
-            Row(
-              children: [
-                const Spacer(),
-                FilledButton.icon(
-                  onPressed: _addBranch,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Branch'),
-                ),
-              ],
-            ),
-            SizedBox(height: spacing.lg),
-            Card(
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _branches.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final branch = _branches[index];
-                  return _BranchTile(
-                    branch: branch,
-                    onEdit: () => _editBranch(branch),
-                    onDelete: () => _deleteBranch(branch),
-                    onToggleStatus: () => _toggleBranchStatus(branch),
-                  );
-                },
+    return SingleChildScrollView(
+      padding: spacing.page,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(
+            title: 'Branches',
+            subtitle: 'Manage your branch locations.',
+          ),
+          SizedBox(height: spacing.md),
+          Row(
+            children: [
+              const Spacer(),
+              FilledButton.icon(
+                onPressed: _addBranch,
+                icon: const Icon(Icons.add),
+                label: const Text('Add Branch'),
               ),
+            ],
+          ),
+          SizedBox(height: spacing.lg),
+          Card(
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _branches.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final branch = _branches[index];
+                return _BranchTile(
+                  branch: branch,
+                  onEdit: () => _editBranch(branch),
+                  onDelete: () => _deleteBranch(branch),
+                  onToggleStatus: () => _toggleBranchStatus(branch),
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

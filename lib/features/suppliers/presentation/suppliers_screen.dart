@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
+import '../../../core/money.dart';
 import '../../../design_system/components/buttons/app_button.dart';
 import '../../../design_system/components/dialogs/app_dialog.dart';
 import '../../../design_system/components/feedback/feedback_views.dart';
@@ -51,7 +51,6 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
   @override
   Widget build(BuildContext context) {
     final suppliersAsync = ref.watch(supplierListProvider);
-    final currency = NumberFormat.simpleCurrency(name: 'KES');
 
     return suppliersAsync.when(
       data: (suppliers) {
@@ -66,7 +65,6 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
         return _SuppliersContent(
           searchController: _searchController,
           suppliers: filtered,
-          currency: currency,
         );
       },
       loading: () => const LoadingView(),
@@ -83,12 +81,10 @@ class _SuppliersContent extends StatelessWidget {
   const _SuppliersContent({
     required this.searchController,
     required this.suppliers,
-    required this.currency,
   });
 
   final TextEditingController searchController;
   final List<Supplier> suppliers;
-  final NumberFormat currency;
 
   @override
   Widget build(BuildContext context) {
@@ -123,10 +119,9 @@ class _SuppliersContent extends StatelessWidget {
                   subtitle: supplier.phone,
                   trailing: _BalanceChip(
                     balance: supplier.balance,
-                    currency: currency,
                   ),
                   onTap: () =>
-                      _showSupplierDetails(context, supplier, currency),
+                      _showSupplierDetails(context, supplier),
                 );
               }).toList(),
             ),
@@ -138,21 +133,19 @@ class _SuppliersContent extends StatelessWidget {
   void _showSupplierDetails(
     BuildContext context,
     Supplier supplier,
-    NumberFormat currency,
   ) {
     showDialog(
       context: context,
       builder: (context) =>
-          _SupplierDetailDialog(supplier: supplier, currency: currency),
+          _SupplierDetailDialog(supplier: supplier),
     );
   }
 }
 
 class _BalanceChip extends StatelessWidget {
-  const _BalanceChip({required this.balance, required this.currency});
+  const _BalanceChip({required this.balance});
 
   final int balance;
-  final NumberFormat currency;
 
   @override
   Widget build(BuildContext context) {
@@ -162,25 +155,22 @@ class _BalanceChip extends StatelessWidget {
             ? AppStatus.success
             : AppStatus.neutral;
 
-    final amountKes = balance.abs() / 100.0;
-    return StatusBadge(label: currency.format(amountKes), status: status);
+    return StatusBadge(label: formatKes(balance.abs()), status: status);
   }
 }
 
 class _SupplierDetailDialog extends StatelessWidget {
-  const _SupplierDetailDialog({required this.supplier, required this.currency});
+  const _SupplierDetailDialog({required this.supplier});
 
   final Supplier supplier;
-  final NumberFormat currency;
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
-    final balanceKes = supplier.balance / 100.0;
     final balanceText = supplier.balance < 0
-        ? 'We owe: ${currency.format(balanceKes.abs())}'
+        ? 'We owe: ${formatKes(supplier.balance.abs())}'
         : supplier.balance > 0
-            ? 'They owe: ${currency.format(balanceKes)}'
+            ? 'They owe: ${formatKes(supplier.balance)}'
             : 'Settled';
 
     return AppDialog(

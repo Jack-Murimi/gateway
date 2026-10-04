@@ -34,6 +34,9 @@ class AppScaffold extends StatelessWidget {
     required this.selectedIndex,
     required this.onDestinationSelected,
     this.actions,
+    this.showBackButton = false,
+    this.onBackPressed,
+    this.floatingActionButton,
   });
 
   /// Screen title.
@@ -53,6 +56,15 @@ class AppScaffold extends StatelessWidget {
 
   /// Optional app bar actions.
   final List<Widget>? actions;
+  
+  /// Show back button instead of menu/hamburger.
+  final bool showBackButton;
+  
+  /// Back button callback.
+  final VoidCallback? onBackPressed;
+  
+  /// Optional floating action button.
+  final Widget? floatingActionButton;
 
   @override
   Widget build(BuildContext context) {
@@ -65,17 +77,23 @@ class AppScaffold extends StatelessWidget {
         appBar: AppBar(
           title: Text(title),
           actions: actions,
-          leading: Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            ),
-          ),
+          leading: showBackButton 
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: onBackPressed,
+                )
+              : Builder(
+                  builder: (context) => IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
+                ),
         ),
-        drawer: _AppDrawer(),
+        drawer: showBackButton ? null : _AppDrawer(),
         body: SafeArea(child: body),
-        bottomNavigationBar: selectedIndex != null ? NavigationBar(
-          selectedIndex: selectedIndex!,
+        floatingActionButton: floatingActionButton,
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: selectedIndex ?? 0,
           onDestinationSelected: onDestinationSelected,
           destinations: [
             for (final item in destinations)
@@ -85,7 +103,7 @@ class AppScaffold extends StatelessWidget {
                 label: item.label,
               ),
           ],
-        ) : null,
+        ),
       );
     }
 
@@ -113,6 +131,7 @@ class AppScaffold extends StatelessWidget {
             ],
           ),
         ),
+        floatingActionButton: floatingActionButton,
       );
     }
 
@@ -140,6 +159,7 @@ class AppScaffold extends StatelessWidget {
           ],
         ),
       ),
+      floatingActionButton: floatingActionButton,
     );
   }
 }

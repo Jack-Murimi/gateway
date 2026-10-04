@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 
+import '../../core/money.dart';
 import '../../features/sales/domain/sales_models.dart';
 
 /// Formats sale receipts for printing/sharing.
@@ -19,14 +20,13 @@ class ReceiptFormatter {
   String formatReceipt(Sale sale, {required String branchName, required String customerName}) {
     final buffer = StringBuffer();
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-    final currency = NumberFormat.simpleCurrency(name: 'KES');
 
     // Header
     buffer.writeln(_center(businessName, 48));
     buffer.writeln(_center(businessAddress, 48));
     buffer.writeln(_center(businessPhone, 48));
     buffer.writeln(_line(48));
-    
+
     // Receipt info
     buffer.writeln('Receipt: ${sale.receiptNumber}');
     buffer.writeln('Date: ${dateFormat.format(sale.date)}');
@@ -37,48 +37,45 @@ class ReceiptFormatter {
     // Items
     buffer.writeln(_formatRow('Item', 'Qty', 'Price', 'Total'));
     buffer.writeln(_line(48));
-    
+
     for (final line in sale.lines) {
-      final unitPrice = line.unitPrice / 100.0;
-      final lineTotal = line.total / 100.0;
-      
+      final unitPriceStr = formatKes(line.unitPrice);
+      final lineTotalStr = formatKes(line.total);
+
       // Product name on own line if too long
       if (line.productName.length > 30) {
         buffer.writeln(line.productName);
-        buffer.writeln(_formatRow('', '${line.quantity}', currency.format(unitPrice), currency.format(lineTotal)));
+        buffer.writeln(_formatRow('', '${line.quantity}', unitPriceStr, lineTotalStr));
       } else {
-        final shortName = line.productName.length > 20 
-            ? '${line.productName.substring(0, 17)}...' 
+        final shortName = line.productName.length > 20
+            ? '${line.productName.substring(0, 17)}...'
             : line.productName;
-        buffer.writeln(_formatRow(shortName, '${line.quantity}', currency.format(unitPrice), currency.format(lineTotal)));
+        buffer.writeln(_formatRow(shortName, '${line.quantity}', unitPriceStr, lineTotalStr));
       }
     }
-    
+
     buffer.writeln(_line(48));
-    
+
     // Totals
-    final total = sale.total / 100.0;
-    buffer.writeln(_rightAlign('TOTAL: ${currency.format(total)}', 48));
-    
+    buffer.writeln(_rightAlign('TOTAL: ${formatKes(sale.total)}', 48));
+
     // Payments
     if (sale.payments.isNotEmpty) {
       buffer.writeln();
       buffer.writeln('Payments:');
       for (final payment in sale.payments) {
-        final amount = payment.amount / 100.0;
         final methodLabel = payment.method.name.toUpperCase();
-        buffer.writeln('  $methodLabel: ${currency.format(amount)}');
+        buffer.writeln('  $methodLabel: ${formatKes(payment.amount)}');
         if (payment.reference != null) {
           buffer.writeln('  Ref: ${payment.reference}');
         }
       }
     }
-    
+
     // Balance (for credit sales)
     if (sale.status == SaleStatus.credit) {
-      final balance = sale.balance / 100.0;
       buffer.writeln();
-      buffer.writeln(_rightAlign('BALANCE DUE: ${currency.format(balance)}', 48));
+      buffer.writeln(_rightAlign('BALANCE DUE: ${formatKes(sale.balance)}', 48));
       if (sale.dueDate != null) {
         buffer.writeln(_rightAlign('Due: ${dateFormat.format(sale.dueDate!)}', 48));
       }

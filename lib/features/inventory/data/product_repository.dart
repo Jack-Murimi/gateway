@@ -10,4 +10,13 @@ abstract class ProductRepository {
   
   /// Get product by ID.
   Future<Product?> getProduct(String id);
+  
+  /// Create a new product.
+  Future<void> createProduct(Product product);
+  
+  /// Update an existing product.
+  Future<void> updateProduct(Product product);
+  
+  /// Delete a product.
+  Future<void> deleteProduct(String id);
 }

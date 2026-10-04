@@ -16,7 +16,7 @@ class MockSupplierRepository implements SupplierRepository {
         name: 'Kenya Gas Ltd',
         phone: '+254720111222',
         email: 'orders@kenyagas.co.ke',
-        balance: -4500000, // We owe 45,000 KES
+        balance: -45000, // We owe 45,000 KES
         lastOrderDate: '2024-01-15',
       ),
       const Supplier(
@@ -32,14 +32,14 @@ class MockSupplierRepository implements SupplierRepository {
         name: 'Total Energies',
         phone: '+254744333444',
         email: 'b2b@totalenergies.co.ke',
-        balance: -12000000, // We owe 120,000 KES
+        balance: -120000, // We owe 120,000 KES
         lastOrderDate: '2024-01-10',
       ),
       const Supplier(
         id: 'supp-hashi',
         name: 'Hashi Energy',
         phone: '+254755444555',
-        balance: 2500000, // They owe us 25,000 KES (overpayment/returns)
+        balance: 25000, // They owe us 25,000 KES (overpayment/returns)
         lastOrderDate: '2024-01-08',
       ),
     ];

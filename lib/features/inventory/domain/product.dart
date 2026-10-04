@@ -21,6 +21,25 @@ class Product extends Equatable {
   final String? brand;
   final double? sizeKg;
 
+  /// Create a copy with updated fields.
+  Product copyWith({
+    String? id,
+    String? name,
+    ProductKind? kind,
+    int? price,
+    String? brand,
+    double? sizeKg,
+  }) {
+    return Product(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      kind: kind ?? this.kind,
+      price: price ?? this.price,
+      brand: brand ?? this.brand,
+      sizeKg: sizeKg ?? this.sizeKg,
+    );
+  }
+
   @override
   List<Object?> get props => [id, name, kind, price, brand, sizeKg];
 }

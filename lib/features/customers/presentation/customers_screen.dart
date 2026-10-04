@@ -1,7 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
+import '../../../core/money.dart';
 import '../../../design_system/components/dialogs/app_dialog.dart';
 import '../../../design_system/components/feedback/feedback_views.dart';
 import '../../../design_system/components/inputs/app_text_field.dart';
@@ -35,14 +35,12 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currency = NumberFormat.simpleCurrency(name: 'KES');
     final customersAsync = ref.watch(customersProvider);
 
     return customersAsync.when(
       data: (customers) => _CustomersContent(
         searchController: _searchController,
         customers: customers,
-        currency: currency,
       ),
       loading: () => const LoadingView(),
       error: (err, stack) => ErrorView(title: 'Error loading customers', message: err.toString()),
@@ -54,12 +52,10 @@ class _CustomersContent extends StatelessWidget {
   const _CustomersContent({
     required this.searchController,
     required this.customers,
-    required this.currency,
   });
 
   final TextEditingController searchController;
   final List<Customer> customers;
-  final NumberFormat currency;
 
   @override
   Widget build(BuildContext context) {
@@ -93,10 +89,9 @@ class _CustomersContent extends StatelessWidget {
                   name: customer.name,
                   subtitle: customer.phone,
                   trailing: _BalanceChip(
-                    balance: customer.balance / 100,
-                    currency: currency,
+                    balance: customer.balance,
                   ),
-                  onTap: () => _showCustomerDetails(context, customer, currency),
+                  onTap: () => _showCustomerDetails(context, customer),
                 );
               }).toList(),
             ),
@@ -108,44 +103,40 @@ class _CustomersContent extends StatelessWidget {
   void _showCustomerDetails(
     BuildContext context,
     Customer customer,
-    NumberFormat currency,
   ) {
     showDialog(
       context: context,
       builder: (context) => _CustomerDetailDialog(
         customer: customer,
-        currency: currency,
       ),
     );
   }
 }
 
 class _BalanceChip extends StatelessWidget {
-  const _BalanceChip({required this.balance, required this.currency});
+  const _BalanceChip({required this.balance});
 
-  final double balance;
-  final NumberFormat currency;
+  /// Balance in KES (positive = customer owes us debt).
+  final int balance;
 
   @override
   Widget build(BuildContext context) {
-    final status = balance < 0
-        ? AppStatus.danger
-        : balance > 0
+    final status = balance > 0
+        ? AppStatus.warning
+        : balance < 0
             ? AppStatus.success
             : AppStatus.neutral;
 
-    return StatusBadge(label: currency.format(balance.abs()), status: status);
+    return StatusBadge(label: formatKes(balance.abs()), status: status);
   }
 }
 
 class _CustomerDetailDialog extends StatelessWidget {
   const _CustomerDetailDialog({
     required this.customer,
-    required this.currency,
   });
 
   final Customer customer;
-  final NumberFormat currency;
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +162,7 @@ class _CustomerDetailDialog extends StatelessWidget {
               child: Text(loc.address),
             )),
             SizedBox(height: spacing.md),
-            Text('Balance: ${currency.format(customer.balance / 100)}'),
+            Text('Balance: ${formatKes(customer.balance)}'),
           ],
         ),
       ),

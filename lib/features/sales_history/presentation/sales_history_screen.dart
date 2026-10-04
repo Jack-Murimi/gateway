@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/money.dart';
 import '../../../app/providers/receipt_providers.dart';
 import '../../../design_system/components/buttons/app_button.dart';
 import '../../../design_system/components/dialogs/app_dialog.dart';
@@ -40,7 +41,6 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currency = NumberFormat.currency(locale: 'en_KE', symbol: 'KES ', decimalDigits: 0);
     final salesAsync = ref.watch(branchSalesProvider(_selectedBranchId));
 
     return salesAsync.when(
@@ -57,7 +57,6 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
         return _SalesHistoryContent(
           searchController: _searchController,
           sales: filtered,
-          currency: currency,
           onSearchChanged: (q) => setState(() => _searchQuery = q),
         );
       },
@@ -74,13 +73,11 @@ class _SalesHistoryContent extends StatelessWidget {
   const _SalesHistoryContent({
     required this.searchController,
     required this.sales,
-    required this.currency,
     required this.onSearchChanged,
   });
 
   final TextEditingController searchController;
   final List<Sale> sales;
-  final NumberFormat currency;
   final ValueChanged<String> onSearchChanged;
 
   @override
@@ -126,14 +123,14 @@ class _SalesHistoryContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          currency.format(total),
+                          formatKes(total),
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         SizedBox(height: spacing.xs),
                         _StatusChip(status: sale.status),
                       ],
                     ),
-                    onTap: () => _showSaleDetails(context, sale, currency),
+                    onTap: () => _showSaleDetails(context, sale),
                   ),
                 );
               }).toList(),
@@ -146,12 +143,11 @@ class _SalesHistoryContent extends StatelessWidget {
   void _showSaleDetails(
     BuildContext context,
     Sale sale,
-    NumberFormat currency,
   ) {
     showDialog(
       context: context,
       builder: (context) =>
-          _SaleDetailDialog(sale: sale, currency: currency),
+          _SaleDetailDialog(sale: sale),
     );
   }
 }
@@ -176,10 +172,9 @@ class _StatusChip extends StatelessWidget {
 }
 
 class _SaleDetailDialog extends ConsumerWidget {
-  const _SaleDetailDialog({required this.sale, required this.currency});
+  const _SaleDetailDialog({required this.sale});
 
   final Sale sale;
-  final NumberFormat currency;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -201,7 +196,7 @@ class _SaleDetailDialog extends ConsumerWidget {
           SizedBox(height: spacing.sm),
           Text('Items: ${sale.lines.length}'),
           SizedBox(height: spacing.sm),
-          Text('Total: ${currency.format(total / 100.0)}'),
+          Text('Total: ${formatKes(total)}'),
           SizedBox(height: spacing.sm),
           Text('Status: ${sale.status.name}'),
           if (sale.voidReason != null) ...[

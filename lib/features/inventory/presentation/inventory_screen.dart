@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
+import '../../../core/money.dart';
 import '../../../design_system/components/buttons/app_button.dart';
 import '../../../design_system/components/dialogs/app_dialog.dart';
 import '../../../design_system/components/feedback/feedback_views.dart';
@@ -37,14 +37,12 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currency = NumberFormat.simpleCurrency(name: 'KES');
     final inventoryAsync = ref.watch(branchInventoryProvider(ref.watch(currentBranchProvider).id));
 
     return inventoryAsync.when(
       data: (inventory) => _InventoryContent(
         searchController: _searchController,
         inventory: inventory,
-        currency: currency,
       ),
       loading: () => const LoadingView(),
       error: (err, stack) => ErrorView(title: 'Error loading inventory', message: err.toString()),
@@ -52,22 +50,55 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   }
 }
 
-class _InventoryContent extends StatelessWidget {
+class _InventoryContent extends StatefulWidget {
   const _InventoryContent({
     required this.searchController,
     required this.inventory,
-    required this.currency,
   });
 
   final TextEditingController searchController;
   final List<ProductWithStock> inventory;
-  final NumberFormat currency;
+
+  @override
+  State<_InventoryContent> createState() => _InventoryContentState();
+}
+
+class _InventoryContentState extends State<_InventoryContent> {
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    widget.searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.searchController.removeListener(_onSearchChanged);
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = widget.searchController.text.trim().toLowerCase();
+    });
+  }
+
+  List<ProductWithStock> get _filteredInventory {
+    if (_searchQuery.isEmpty) return widget.inventory;
+    return widget.inventory.where((item) {
+      final name = item.product.name.toLowerCase();
+      final brand = item.product.brand?.toLowerCase() ?? '';
+      return name.contains(_searchQuery) || brand.contains(_searchQuery);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
-    final lowStockCount = inventory.where((item) => item.quantity <= 10).length; // ponytail: hardcoded minStock=10
-    final outOfStockCount = inventory.where((item) => item.quantity == 0).length;
+    final filteredInventory = _filteredInventory;
+    final lowStockCount = filteredInventory.where((item) => item.quantity <= 10).length; // ponytail: hardcoded minStock=10
+    final outOfStockCount = filteredInventory.where((item) => item.quantity == 0).length;
 
     return SingleChildScrollView(
       padding: spacing.page,
@@ -85,7 +116,7 @@ class _InventoryContent extends StatelessWidget {
             children: [
               _StatChip(
                 label: 'Total Items',
-                value: '${inventory.length}',
+                value: '${filteredInventory.length}',
                 icon: Icons.inventory_2,
               ),
               _StatChip(
@@ -109,18 +140,24 @@ class _InventoryContent extends StatelessWidget {
           SizedBox(height: spacing.xl),
           AppSearchField(
             label: 'Search inventory',
-            controller: searchController,
-            hintText: 'Name or SKU',
+            controller: widget.searchController,
+            hintText: 'Name or brand',
           ),
           SizedBox(height: spacing.lg),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 600) {
-                return _InventoryList(inventory: inventory, currency: currency);
-              }
-              return _InventoryTable(inventory: inventory, currency: currency);
-            },
-          ),
+          if (filteredInventory.isEmpty)
+            const EmptyView(
+              title: 'No products found',
+              message: 'Try a different search term',
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 600) {
+                  return _InventoryList(inventory: filteredInventory);
+                }
+                return _InventoryTable(inventory: filteredInventory);
+              },
+            ),
         ],
       ),
     );
@@ -164,10 +201,9 @@ class _StatChip extends StatelessWidget {
 }
 
 class _InventoryList extends StatelessWidget {
-  const _InventoryList({required this.inventory, required this.currency});
+  const _InventoryList({required this.inventory});
 
   final List<ProductWithStock> inventory;
-  final NumberFormat currency;
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +221,7 @@ class _InventoryList extends StatelessWidget {
           margin: EdgeInsets.only(bottom: spacing.md),
           child: ListTile(
             title: Text(item.product.name),
-            subtitle: Text(currency.format(item.product.price / 100)),
+            subtitle: Text(formatKes(item.product.price)),
             trailing: StatusBadge(
               label: item.quantity > 0 ? '${item.quantity} units' : 'Out of stock',
               status: status,
@@ -200,16 +236,15 @@ class _InventoryList extends StatelessWidget {
   void _showItemDetails(BuildContext context, ProductWithStock item) {
     showDialog(
       context: context,
-      builder: (context) => _ItemDetailDialog(item: item, currency: currency),
+      builder: (context) => _ItemDetailDialog(item: item),
     );
   }
 }
 
 class _InventoryTable extends StatelessWidget {
-  const _InventoryTable({required this.inventory, required this.currency});
+  const _InventoryTable({required this.inventory});
 
   final List<ProductWithStock> inventory;
-  final NumberFormat currency;
 
   @override
   Widget build(BuildContext context) {
@@ -231,7 +266,7 @@ class _InventoryTable extends StatelessWidget {
           cells: [
             DataCell(Text(item.product.name)),
             DataCell(Text('${item.quantity}')),
-            DataCell(Text(currency.format(item.product.price / 100))),
+            DataCell(Text(formatKes(item.product.price))),
             DataCell(
               StatusBadge(
                 label: item.quantity > 0 ? 'In stock' : 'Out of stock',
@@ -246,10 +281,9 @@ class _InventoryTable extends StatelessWidget {
 }
 
 class _ItemDetailDialog extends StatelessWidget {
-  const _ItemDetailDialog({required this.item, required this.currency});
+  const _ItemDetailDialog({required this.item});
 
   final ProductWithStock item;
-  final NumberFormat currency;
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +295,7 @@ class _ItemDetailDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Price: ${currency.format(item.product.price / 100)}'),
+          Text('Price: ${formatKes(item.product.price)}'),
           SizedBox(height: spacing.sm),
           Text('Current Stock: ${item.quantity}'),
         ],

@@ -214,7 +214,7 @@ class UsedReceipts extends Table {
 // Sync queue table
 class SyncQueue extends Table {
   TextColumn get id => text()();
-  TextColumn get tableName => text()();
+  TextColumn get entityTable => text()();
   TextColumn get recordId => text()();
   TextColumn get operation => text()(); // insert/update/delete
   TextColumn get payload => text()(); // JSON

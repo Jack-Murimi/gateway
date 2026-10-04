@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
+import '../../../core/money.dart';
 import '../../../design_system/components/cards/stat_card.dart';
 import '../../../design_system/components/feedback/feedback_views.dart';
 import '../../../design_system/components/layout/section_header.dart';
@@ -20,7 +20,6 @@ class ReportsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currency = NumberFormat.simpleCurrency(name: 'KES');
     final summaryAsync = ref.watch(reportSummaryProvider);
     final branchComparisonAsync = ref.watch(branchComparisonProvider);
     final preset = ref.watch(dateRangePresetProvider);
@@ -30,7 +29,6 @@ class ReportsScreen extends ConsumerWidget {
         return branchComparisonAsync.when(
           data: (branchComparison) {
             return _ReportsContent(
-              currency: currency,
               summary: summary,
               branchComparison: branchComparison,
               selectedPreset: preset,
@@ -59,14 +57,12 @@ class ReportsScreen extends ConsumerWidget {
 
 class _ReportsContent extends StatelessWidget {
   const _ReportsContent({
-    required this.currency,
     required this.summary,
     required this.branchComparison,
     required this.selectedPreset,
     required this.onPresetChanged,
   });
 
-  final NumberFormat currency;
   final ReportSummary summary;
   final List<BranchSummary> branchComparison;
   final DateRangePresetEnum selectedPreset;
@@ -113,9 +109,6 @@ class _ReportsContent extends StatelessWidget {
                   ? (constraints.maxWidth - spacing.lg * 3) / 4
                   : constraints.maxWidth;
 
-              final totalKes = summary.totalSalesAmount / 100.0;
-              final avgKes = summary.averageSale / 100.0;
-
               return Wrap(
                 spacing: spacing.lg,
                 runSpacing: spacing.lg,
@@ -124,7 +117,7 @@ class _ReportsContent extends StatelessWidget {
                     width: cardWidth,
                     child: StatCard(
                       label: 'Total Sales',
-                      value: currency.format(totalKes),
+                      value: formatKes(summary.totalSalesAmount),
                       icon: Icons.trending_up,
                     ),
                   ),
@@ -140,7 +133,7 @@ class _ReportsContent extends StatelessWidget {
                     width: cardWidth,
                     child: StatCard(
                       label: 'Avg. Sale',
-                      value: currency.format(avgKes),
+                      value: formatKes(summary.averageSale),
                       icon: Icons.analytics,
                     ),
                   ),
@@ -169,7 +162,6 @@ class _ReportsContent extends StatelessWidget {
             )
           else
             _BranchComparison(
-              currency: currency,
               branches: branchComparison,
             ),
         ],
@@ -180,17 +172,15 @@ class _ReportsContent extends StatelessWidget {
 
 class _BranchComparison extends StatelessWidget {
   const _BranchComparison({
-    required this.currency,
     required this.branches,
   });
 
-  final NumberFormat currency;
   final List<BranchSummary> branches;
 
   @override
   Widget build(BuildContext context) {
     final spacing = context.spacing;
-    
+
     // Calculate total for percentage
     final grandTotal = branches.fold<int>(
       0,
@@ -199,9 +189,8 @@ class _BranchComparison extends StatelessWidget {
 
     return Column(
       children: branches.map((branch) {
-        final totalKes = branch.totalSalesAmount / 100.0;
-        final percent = grandTotal > 0 
-            ? branch.totalSalesAmount / grandTotal 
+        final percent = grandTotal > 0
+            ? branch.totalSalesAmount / grandTotal
             : 0.0;
 
         return Card(
@@ -219,7 +208,7 @@ class _BranchComparison extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     Text(
-                      currency.format(totalKes),
+                      formatKes(branch.totalSalesAmount),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: Theme.of(context).colorScheme.primary,
                           ),

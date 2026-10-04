@@ -50,7 +50,7 @@ Future<ReportSummary> reportSummary(Ref ref) async {
 
   final uniqueCustomers = completedSales
       .map((s) => s.customerId)
-      .where((id) => id != null)
+      .whereType<String>()
       .toSet()
       .length;
 

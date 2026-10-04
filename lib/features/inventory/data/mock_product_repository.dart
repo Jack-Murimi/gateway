@@ -3,7 +3,7 @@ import 'product_repository.dart';
 
 /// Mock product repository with hardcoded catalog.
 class MockProductRepository implements ProductRepository {
-  static const _products = [
+  final List<Product> _products = const [
     // Afrigas
     Product(id: 'afrigas-13kg-refill', name: '13kg Afrigas Refill', kind: ProductKind.refill, price: 3300, brand: 'Afrigas', sizeKg: 13),
     Product(id: 'afrigas-6kg-refill', name: '6kg Afrigas Refill', kind: ProductKind.refill, price: 1800, brand: 'Afrigas', sizeKg: 6),
@@ -29,10 +29,10 @@ class MockProductRepository implements ProductRepository {
     Product(id: 'hose-1.5m', name: 'Gas Hose 1.5m', kind: ProductKind.accessory, price: 450),
     Product(id: 'double-stove', name: 'Double Burner Stove', kind: ProductKind.accessory, price: 4800),
     Product(id: 'single-stove', name: 'Single Burner Stove', kind: ProductKind.accessory, price: 2400),
-  ];
+  ].toList();
 
   @override
-  Future<List<Product>> getProducts() async => _products;
+  Future<List<Product>> getProducts() async => List.unmodifiable(_products);
 
   @override
   Future<List<Product>> searchProducts(String query) async {
@@ -50,5 +50,31 @@ class MockProductRepository implements ProductRepository {
     } catch (_) {
       return null;
     }
+  }
+
+  @override
+  Future<void> createProduct(Product product) async {
+    if (_products.any((p) => p.id == product.id)) {
+      throw Exception('Product with ID ${product.id} already exists');
+    }
+    _products.add(product);
+  }
+
+  @override
+  Future<void> updateProduct(Product product) async {
+    final index = _products.indexWhere((p) => p.id == product.id);
+    if (index == -1) {
+      throw Exception('Product with ID ${product.id} not found');
+    }
+    _products[index] = product;
+  }
+
+  @override
+  Future<void> deleteProduct(String id) async {
+    final index = _products.indexWhere((p) => p.id == id);
+    if (index == -1) {
+      throw Exception('Product with ID $id not found');
+    }
+    _products.removeAt(index);
   }
 }

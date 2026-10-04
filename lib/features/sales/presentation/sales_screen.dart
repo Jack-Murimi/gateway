@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/money.dart';
 import '../../../design_system/tokens/breakpoints.dart';
 import '../../../design_system/components/dialogs/app_dialog.dart';
 
@@ -17,7 +18,7 @@ import '../../customers/application/customer_providers.dart';
 import '../../customers/domain/customer.dart';
 import 'widgets/sales_header.dart';
 import 'widgets/return_cylinder_dialog.dart';
-import 'widgets/payment_dialog.dart' hide PaymentMethod;
+import 'widgets/payment_dialog.dart';
 import 'widgets/product_search_bar.dart';
 import 'widgets/single_column_layout.dart';
 
@@ -243,7 +244,6 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
       final paymentResult = await showPaymentDialog(
         context,
         grandTotal: cartState.total,
-        currency: _currency,
         customer: _selectedCustomer,
       );
 
@@ -258,7 +258,7 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
         final creditLimit = _selectedCustomer.creditLimit ?? 0;
         final newBalance = _selectedCustomer.balance + cartState.total;
         if (newBalance > creditLimit) {
-          _showMessage('Credit limit exceeded (limit: ${_currency.format(creditLimit)})');
+          _showMessage('Credit limit exceeded (limit: ${formatKes(creditLimit)})');
           return;
         }
       }
@@ -266,11 +266,8 @@ class _SalesScreenState extends ConsumerState<SalesScreen> {
       // Extract payment info
       final now = DateTime.now();
       final payments = paymentResult.payments.map((p) => Payment(
-        method: PaymentMethod.values.firstWhere(
-          (m) => m.name == p.method.name,
-          orElse: () => PaymentMethod.cash,
-        ),
-        amount: p.amount.toInt(),
+        method: p.method,
+        amount: p.amount,
         timestamp: now,
         reference: p.reference,
       )).toList();

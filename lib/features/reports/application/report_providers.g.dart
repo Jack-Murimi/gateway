@@ -154,7 +154,7 @@ final class ReportSummaryProvider
   }
 }
 
-String _$reportSummaryHash() => r'b158adaeac851303022b52c567c54ad90f1b5512';
+String _$reportSummaryHash() => r'5ad5f5edc19340f80cfade5d92840f6d0a7b31ce';
 
 /// Branch comparison for the selected date range.
 

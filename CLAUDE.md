@@ -26,9 +26,15 @@ Your job is to build a clean, production-ready, responsive UI from scratch using
    - Never hardcode `Color`, `fontSize`, `EdgeInsets`, `BorderRadius`, or `BoxShadow`.
    - Always use design tokens / `Theme.of(context)`.
 
-3. **Presentation layer only**
-   - No API calls, no repositories, no business logic, no database access.
-   - UI state only (using Riverpod if needed for local UI state).
+3. **Architecture & Persistence**
+   - Offline-first architecture backed by Drift (SQLite) with repositories taking `AppDatabase`.
+   - Repositories are `keepAlive`.
+   - Reads are streams (`select(...).watch()`) exposed as `@riverpod Stream<...>` so UI updates reactively.
+   - All multi-table writes are transactional (`db.transaction(...)`) and enqueue sync rows in `sync_queue`.
+   - Stock and balances are derived from append-only movement/ledger tables; never overwrite a mutable counter.
+   - Currency: whole KES integers everywhere (`formatKes(int)`). No `/ 100` or `* 100`.
+   - Receipts: manual entry only; unique per branch. UUIDs for internal IDs.
+   - Soft deletes only (`deleted_at`), no hard deletes of business records.
 
 4. **Feature-first folder structure** (mandatory)
 
@@ -184,16 +190,19 @@ Never invent business logic. If data is needed, use realistic mock data or simpl
 
 ---
 
-## 7. Starting Point (When working from scratch)
+## 7. Target Architecture & Execution
 
-When the project is empty, your first tasks should be:
-
-1. Create the full folder structure above.
-2. Set up `app_theme.dart` with solid light + dark Material 3 themes.
-3. Create the core design tokens.
-4. Build the essential reusable components listed in section 3.
-5. Create a basic adaptive `AppScaffold` + router shell.
-6. Then start with the **Sales screen** and **Login + Branch selection**.
+The project operates under the architecture defined in `plan.md`:
+- `lib/app/database/`: Drift tables, `AppDatabase`, DAOs, migrations, seeding
+- `lib/app/providers/`: Global infra providers (database, preferences, connectivity)
+- `lib/app/router/`: `GoRouter` as provider with auth guards
+- `lib/core/`: `money.dart` (KES whole shillings formatter), `ids.dart` (UUID generator)
+- `lib/features/<feature>/`:
+  - `domain/`: Pure Dart entities (`Equatable`)
+  - `data/`: Drift repository implementations (replacing Mocks)
+  - `application/`: Riverpod Stream providers + controllers
+  - `presentation/`: Adaptive Material 3 UI consuming design system
+- Execute phase-by-phase following `plan.md`. Never leave features half-wired.
 
 ---
 

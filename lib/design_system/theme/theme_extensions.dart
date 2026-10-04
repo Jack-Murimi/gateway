@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../tokens/radii.dart';
 import '../tokens/spacing.dart';
 
+export 'semantic_colors.dart';
+
 /// Theme extension exposing layout spacing tokens.
 @immutable
 final class AppSpacing extends ThemeExtension<AppSpacing> {

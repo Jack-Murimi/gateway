@@ -6,6 +6,8 @@ import '../../design_system/components/feedback/feedback_views.dart';
 import '../../design_system/components/navigation/app_scaffold.dart';
 import '../../design_system/tokens/breakpoints.dart';
 import '../../design_system/theme/theme_extensions.dart';
+import '../../features/inventory/application/inventory_providers.dart';
+import '../../features/inventory/presentation/product_form_dialog.dart';
 import '../../features/people/domain/staff.dart';
 import '../providers/connectivity_providers.dart';
 import 'app_destination.dart';
@@ -88,6 +90,7 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell> {
   // ponytail: Mock role. Replace with actual auth provider when backend ready.
   final _currentRole = UserRole.admin;
+  DateTime? _lastBackPress;
 
   List<AppDestination> get _filteredPrimary =>
       _primaryDestinations.where((d) => d.canAccess(_currentRole)).toList();
@@ -95,12 +98,30 @@ class _AppShellState extends ConsumerState<AppShell> {
   List<AppDestination> get _filteredMore =>
       _moreDestinations.where((d) => d.canAccess(_currentRole)).toList();
 
-  int? _selectedIndex(String currentPath) {
+  int? _selectedIndex(String currentPath, WindowSizeClass sizeClass) {
     final primary = _filteredPrimary;
     for (var i = 0; i < primary.length; i++) {
       if (currentPath.startsWith(primary[i].path)) return i;
     }
+    
+    // Check if on a More destination - return More button index
+    final more = _filteredMore;
+    for (var i = 0; i < more.length; i++) {
+      if (currentPath.startsWith(more[i].path)) {
+        // On compact: More button is after first 4 primary (index 4)
+        // On larger: More isn't shown in nav, return null
+        if (sizeClass == WindowSizeClass.compact && more.isNotEmpty) {
+          return 4; // More button is always at index 4 on compact
+        }
+        return null;
+      }
+    }
+    
     return null;
+  }
+  
+  bool _isSecondaryDestination(String currentPath) {
+    return _filteredMore.any((d) => currentPath.startsWith(d.path));
   }
 
   String _titleForPath(String path) {
@@ -108,6 +129,25 @@ class _AppShellState extends ConsumerState<AppShell> {
         .where((d) => path.startsWith(d.path))
         .firstOrNull;
     return dest?.label ?? 'Gateway';
+  }
+  
+  Widget? _fabForPath(String path) {
+    // Only show FAB on inventory screen
+    if (path == '/inventory') {
+      return FloatingActionButton.extended(
+        onPressed: () => _showAddProductDialog(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Add Product'),
+      );
+    }
+    return null;
+  }
+  
+  void _showAddProductDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const _AddProductDialogWrapper(),
+    );
   }
 
   void _onDestinationSelected(int index) {
@@ -169,6 +209,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     final location = GoRouterState.of(context).uri.path;
     final sizeClass = context.windowSizeClass;
     final isOnlineAsync = ref.watch(isOnlineProvider);
+    final isSecondary = _isSecondaryDestination(location);
     
     // On compact: show 4 primary + More button
     // On larger: show all primary in nav
@@ -176,37 +217,106 @@ class _AppShellState extends ConsumerState<AppShell> {
         ? _filteredPrimary.take(4).toList()
         : _filteredPrimary;
 
-    return AppScaffold(
-      title: _titleForPath(location),
-      body: Column(
-        children: [
-          // Show offline banner when not connected
-          isOnlineAsync.whenOrNull(
-            data: (isOnline) => !isOnline ? const OfflineBanner() : null,
-          ) ?? const SizedBox.shrink(),
-          Expanded(child: widget.child),
-        ],
-      ),
-      destinations: [
-        for (final dest in destinations)
-          AppNavDestination(
-            label: dest.label,
-            icon: dest.icon,
-            selectedIcon: dest.selectedIcon,
-          ),
-        if (sizeClass == WindowSizeClass.compact && _filteredMore.isNotEmpty)
-          const AppNavDestination(
-            label: 'More',
-            icon: Icons.more_horiz,
-          ),
-      ],
-      selectedIndex: _selectedIndex(location),
-      onDestinationSelected: (index) {
-        if (sizeClass == WindowSizeClass.compact && 
-            index == destinations.length) {
-          _showMoreMenu();
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        
+        // Secondary screen: go back to sales
+        if (isSecondary) {
+          context.go('/sales');
+          return;
+        }
+        
+        // Primary screen: double-back to exit
+        final now = DateTime.now();
+        final backDelta = _lastBackPress == null 
+            ? const Duration(seconds: 3)
+            : now.difference(_lastBackPress!);
+        
+        if (backDelta > const Duration(seconds: 2)) {
+          _lastBackPress = now;
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Press back again to exit'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
         } else {
-          _onDestinationSelected(index);
+          // Double-back detected, allow exit
+          Navigator.of(context).pop();
+        }
+      },
+      child: AppScaffold(
+        title: _titleForPath(location),
+        showBackButton: isSecondary,
+        onBackPressed: isSecondary ? () => context.go('/sales') : null,
+        floatingActionButton: _fabForPath(location),
+        body: Column(
+          children: [
+            // Show offline banner when not connected
+            isOnlineAsync.whenOrNull(
+              data: (isOnline) => !isOnline ? const OfflineBanner() : null,
+            ) ?? const SizedBox.shrink(),
+            Expanded(child: widget.child),
+          ],
+        ),
+        destinations: [
+          for (final dest in destinations)
+            AppNavDestination(
+              label: dest.label,
+              icon: dest.icon,
+              selectedIcon: dest.selectedIcon,
+            ),
+          if (sizeClass == WindowSizeClass.compact && _filteredMore.isNotEmpty)
+            const AppNavDestination(
+              label: 'More',
+              icon: Icons.more_horiz,
+            ),
+        ],
+        selectedIndex: _selectedIndex(location, sizeClass),
+        onDestinationSelected: (index) {
+          if (sizeClass == WindowSizeClass.compact && 
+              index == destinations.length) {
+            _showMoreMenu();
+          } else {
+            _onDestinationSelected(index);
+          }
+        },
+      ),
+    );
+  }
+}
+
+/// Wrapper to provide Riverpod context for add product dialog.
+class _AddProductDialogWrapper extends ConsumerWidget {
+  const _AddProductDialogWrapper();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ProductFormDialog(
+      onSubmit: (product) async {
+        try {
+          final repo = ref.read(productRepositoryProvider);
+          await repo.createProduct(product);
+          
+          // Invalidate inventory to refresh
+          ref.invalidate(branchInventoryProvider);
+          
+          if (context.mounted) {
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('${product.name} added successfully')),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error: $e')),
+            );
+          }
         }
       },
     );

@@ -6,7 +6,7 @@ import 'returned_cylinder.dart';
 enum SaleStatus { draft, completed, credit, voided, cancelled }
 
 /// Payment method.
-enum PaymentMethod { cash, mpesa, bank, credit }
+enum PaymentMethod { cash, mpesa, card, bank }
 
 /// Cart line item (holds Product reference).
 class SaleLineItem extends Equatable {

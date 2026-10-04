@@ -6593,12 +6593,12 @@ class $SyncQueueTable extends SyncQueue
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _tableNameMeta = const VerificationMeta(
-    'tableName',
+  static const VerificationMeta _entityTableMeta = const VerificationMeta(
+    'entityTable',
   );
   @override
-  late final GeneratedColumn<String> tableName = GeneratedColumn<String>(
-    'table_name',
+  late final GeneratedColumn<String> entityTable = GeneratedColumn<String>(
+    'entity_table',
     aliasedName,
     false,
     type: DriftSqlType.string,
@@ -6683,7 +6683,7 @@ class $SyncQueueTable extends SyncQueue
   @override
   List<GeneratedColumn> get $columns => [
     id,
-    tableName,
+    entityTable,
     recordId,
     operation,
     payload,
@@ -6709,13 +6709,16 @@ class $SyncQueueTable extends SyncQueue
     } else if (isInserting) {
       context.missing(_idMeta);
     }
-    if (data.containsKey('table_name')) {
+    if (data.containsKey('entity_table')) {
       context.handle(
-        _tableNameMeta,
-        tableName.isAcceptableOrUnknown(data['table_name']!, _tableNameMeta),
+        _entityTableMeta,
+        entityTable.isAcceptableOrUnknown(
+          data['entity_table']!,
+          _entityTableMeta,
+        ),
       );
     } else if (isInserting) {
-      context.missing(_tableNameMeta);
+      context.missing(_entityTableMeta);
     }
     if (data.containsKey('record_id')) {
       context.handle(
@@ -6786,9 +6789,9 @@ class $SyncQueueTable extends SyncQueue
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
-      tableName: attachedDatabase.typeMapping.read(
+      entityTable: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}table_name'],
+        data['${effectivePrefix}entity_table'],
       )!,
       recordId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -6829,7 +6832,7 @@ class $SyncQueueTable extends SyncQueue
 
 class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   final String id;
-  final String tableName;
+  final String entityTable;
   final String recordId;
   final String operation;
   final String payload;
@@ -6839,7 +6842,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   final String? error;
   const SyncQueueData({
     required this.id,
-    required this.tableName,
+    required this.entityTable,
     required this.recordId,
     required this.operation,
     required this.payload,
@@ -6852,7 +6855,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
-    map['table_name'] = Variable<String>(tableName);
+    map['entity_table'] = Variable<String>(entityTable);
     map['record_id'] = Variable<String>(recordId);
     map['operation'] = Variable<String>(operation);
     map['payload'] = Variable<String>(payload);
@@ -6870,7 +6873,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   SyncQueueCompanion toCompanion(bool nullToAbsent) {
     return SyncQueueCompanion(
       id: Value(id),
-      tableName: Value(tableName),
+      entityTable: Value(entityTable),
       recordId: Value(recordId),
       operation: Value(operation),
       payload: Value(payload),
@@ -6892,7 +6895,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return SyncQueueData(
       id: serializer.fromJson<String>(json['id']),
-      tableName: serializer.fromJson<String>(json['tableName']),
+      entityTable: serializer.fromJson<String>(json['entityTable']),
       recordId: serializer.fromJson<String>(json['recordId']),
       operation: serializer.fromJson<String>(json['operation']),
       payload: serializer.fromJson<String>(json['payload']),
@@ -6907,7 +6910,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
-      'tableName': serializer.toJson<String>(tableName),
+      'entityTable': serializer.toJson<String>(entityTable),
       'recordId': serializer.toJson<String>(recordId),
       'operation': serializer.toJson<String>(operation),
       'payload': serializer.toJson<String>(payload),
@@ -6920,7 +6923,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
 
   SyncQueueData copyWith({
     String? id,
-    String? tableName,
+    String? entityTable,
     String? recordId,
     String? operation,
     String? payload,
@@ -6930,7 +6933,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
     Value<String?> error = const Value.absent(),
   }) => SyncQueueData(
     id: id ?? this.id,
-    tableName: tableName ?? this.tableName,
+    entityTable: entityTable ?? this.entityTable,
     recordId: recordId ?? this.recordId,
     operation: operation ?? this.operation,
     payload: payload ?? this.payload,
@@ -6942,7 +6945,9 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   SyncQueueData copyWithCompanion(SyncQueueCompanion data) {
     return SyncQueueData(
       id: data.id.present ? data.id.value : this.id,
-      tableName: data.tableName.present ? data.tableName.value : this.tableName,
+      entityTable: data.entityTable.present
+          ? data.entityTable.value
+          : this.entityTable,
       recordId: data.recordId.present ? data.recordId.value : this.recordId,
       operation: data.operation.present ? data.operation.value : this.operation,
       payload: data.payload.present ? data.payload.value : this.payload,
@@ -6961,7 +6966,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   String toString() {
     return (StringBuffer('SyncQueueData(')
           ..write('id: $id, ')
-          ..write('tableName: $tableName, ')
+          ..write('entityTable: $entityTable, ')
           ..write('recordId: $recordId, ')
           ..write('operation: $operation, ')
           ..write('payload: $payload, ')
@@ -6976,7 +6981,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   @override
   int get hashCode => Object.hash(
     id,
-    tableName,
+    entityTable,
     recordId,
     operation,
     payload,
@@ -6990,7 +6995,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
       identical(this, other) ||
       (other is SyncQueueData &&
           other.id == this.id &&
-          other.tableName == this.tableName &&
+          other.entityTable == this.entityTable &&
           other.recordId == this.recordId &&
           other.operation == this.operation &&
           other.payload == this.payload &&
@@ -7002,7 +7007,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
 
 class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   final Value<String> id;
-  final Value<String> tableName;
+  final Value<String> entityTable;
   final Value<String> recordId;
   final Value<String> operation;
   final Value<String> payload;
@@ -7013,7 +7018,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   final Value<int> rowid;
   const SyncQueueCompanion({
     this.id = const Value.absent(),
-    this.tableName = const Value.absent(),
+    this.entityTable = const Value.absent(),
     this.recordId = const Value.absent(),
     this.operation = const Value.absent(),
     this.payload = const Value.absent(),
@@ -7025,7 +7030,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   });
   SyncQueueCompanion.insert({
     required String id,
-    required String tableName,
+    required String entityTable,
     required String recordId,
     required String operation,
     required String payload,
@@ -7035,14 +7040,14 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
     this.error = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
-       tableName = Value(tableName),
+       entityTable = Value(entityTable),
        recordId = Value(recordId),
        operation = Value(operation),
        payload = Value(payload),
        createdAt = Value(createdAt);
   static Insertable<SyncQueueData> custom({
     Expression<String>? id,
-    Expression<String>? tableName,
+    Expression<String>? entityTable,
     Expression<String>? recordId,
     Expression<String>? operation,
     Expression<String>? payload,
@@ -7054,7 +7059,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (tableName != null) 'table_name': tableName,
+      if (entityTable != null) 'entity_table': entityTable,
       if (recordId != null) 'record_id': recordId,
       if (operation != null) 'operation': operation,
       if (payload != null) 'payload': payload,
@@ -7068,7 +7073,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
 
   SyncQueueCompanion copyWith({
     Value<String>? id,
-    Value<String>? tableName,
+    Value<String>? entityTable,
     Value<String>? recordId,
     Value<String>? operation,
     Value<String>? payload,
@@ -7080,7 +7085,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   }) {
     return SyncQueueCompanion(
       id: id ?? this.id,
-      tableName: tableName ?? this.tableName,
+      entityTable: entityTable ?? this.entityTable,
       recordId: recordId ?? this.recordId,
       operation: operation ?? this.operation,
       payload: payload ?? this.payload,
@@ -7098,8 +7103,8 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
     if (id.present) {
       map['id'] = Variable<String>(id.value);
     }
-    if (tableName.present) {
-      map['table_name'] = Variable<String>(tableName.value);
+    if (entityTable.present) {
+      map['entity_table'] = Variable<String>(entityTable.value);
     }
     if (recordId.present) {
       map['record_id'] = Variable<String>(recordId.value);
@@ -7132,7 +7137,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   String toString() {
     return (StringBuffer('SyncQueueCompanion(')
           ..write('id: $id, ')
-          ..write('tableName: $tableName, ')
+          ..write('entityTable: $entityTable, ')
           ..write('recordId: $recordId, ')
           ..write('operation: $operation, ')
           ..write('payload: $payload, ')
@@ -10515,7 +10520,7 @@ typedef $$UsedReceiptsTableProcessedTableManager =
     >;
 typedef $$SyncQueueTableCreateCompanionBuilder = SyncQueueCompanion Function({
   required String id,
-  required String tableName,
+  required String entityTable,
   required String recordId,
   required String operation,
   required String payload,
@@ -10527,7 +10532,7 @@ typedef $$SyncQueueTableCreateCompanionBuilder = SyncQueueCompanion Function({
 });
 typedef $$SyncQueueTableUpdateCompanionBuilder = SyncQueueCompanion Function({
   Value<String> id,
-  Value<String> tableName,
+  Value<String> entityTable,
   Value<String> recordId,
   Value<String> operation,
   Value<String> payload,
@@ -10552,8 +10557,8 @@ class $$SyncQueueTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get tableName => $composableBuilder(
-    column: $table.tableName,
+  ColumnFilters<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10607,8 +10612,8 @@ class $$SyncQueueTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get tableName => $composableBuilder(
-    column: $table.tableName,
+  ColumnOrderings<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -10660,8 +10665,10 @@ class $$SyncQueueTableAnnotationComposer
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get tableName =>
-      $composableBuilder(column: $table.tableName, builder: (column) => column);
+  GeneratedColumn<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get recordId =>
       $composableBuilder(column: $table.recordId, builder: (column) => column);
@@ -10721,7 +10728,7 @@ class $$SyncQueueTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
-                Value<String> tableName = const Value.absent(),
+                Value<String> entityTable = const Value.absent(),
                 Value<String> recordId = const Value.absent(),
                 Value<String> operation = const Value.absent(),
                 Value<String> payload = const Value.absent(),
@@ -10732,7 +10739,7 @@ class $$SyncQueueTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => SyncQueueCompanion(
                 id: id,
-                tableName: tableName,
+                entityTable: entityTable,
                 recordId: recordId,
                 operation: operation,
                 payload: payload,
@@ -10745,7 +10752,7 @@ class $$SyncQueueTableTableManager
           createCompanionCallback:
               ({
                 required String id,
-                required String tableName,
+                required String entityTable,
                 required String recordId,
                 required String operation,
                 required String payload,
@@ -10756,7 +10763,7 @@ class $$SyncQueueTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => SyncQueueCompanion.insert(
                 id: id,
-                tableName: tableName,
+                entityTable: entityTable,
                 recordId: recordId,
                 operation: operation,
                 payload: payload,

@@ -26,29 +26,30 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final semantic = context.semanticColors;
     final colors = Theme.of(context).colorScheme;
     final spacing = context.spacing;
     final radii = context.radii;
     final (:background, :foreground) = switch (status) {
       AppStatus.success => (
-        background: colors.primaryContainer,
-        foreground: colors.onPrimaryContainer,
+        background: semantic.successContainer,
+        foreground: semantic.onSuccessContainer,
       ),
       AppStatus.warning => (
-        background: colors.tertiaryContainer,
-        foreground: colors.onTertiaryContainer,
+        background: semantic.warningContainer,
+        foreground: semantic.onWarningContainer,
       ),
       AppStatus.danger => (
-        background: colors.errorContainer,
-        foreground: colors.onErrorContainer,
+        background: semantic.dangerContainer,
+        foreground: semantic.onDangerContainer,
       ),
       AppStatus.neutral => (
         background: colors.surfaceContainerHighest,
         foreground: colors.onSurfaceVariant,
       ),
       AppStatus.info => (
-        background: colors.secondaryContainer,
-        foreground: colors.onSecondaryContainer,
+        background: semantic.infoContainer,
+        foreground: semantic.onInfoContainer,
       ),
     };
 
